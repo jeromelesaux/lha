@@ -3,9 +3,13 @@ package main
 const (
 	methodTypeStorage = 5
 	filenameLength    = 1024
+
+	lzheaderStorage = 4096
+	ucharMax        = (0x7F*2 + 1)
 )
 
 var (
+	crctable             [ucharMax + 1]uint
 	archiveNameExtension string = ".lzh"
 	backupNameExtension  string = ".bak"
 
@@ -133,11 +137,9 @@ var (
 	unixOtherExecPerm  int = 0000001
 	unixRwRwRw         int = 0000666
 
-	lzheaderStorage int = 4096
+	crcpoly uint16 = 0xa001 /* crc-16 (x^16+x^15+x^2+1) */
 
-	crcpoly  uint16 = 0xa001 /* crc-16 (x^16+x^15+x^2+1) */
-	ucharMax uint16 = (0x7F*2 + 1)
-	charBit         = 8
+	charBit = 8
 	/* dhuf.c */
 	nChar     int = (256 + 60 - threshold + 1)
 	treesizeC int = (nChar * 2)
@@ -216,10 +218,9 @@ func initialize_crc(crc *uint) {
 	(*crc) = 0
 }
 
-/*
-func update_crc(crc *uint, c uint) {
-	crctable[((crc)^byte(c))&0xff] ^= ((crc) >> charBit)
-}*/
+func updateCrc(crc *uint, c uint) uint {
+	return 	crctable[((*crc)^(c))&0xff] ^= ((*crc) >> charBit)
+}
 
 func strequ(a, b string) bool {
 	if a[0] == b[0] {

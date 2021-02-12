@@ -1,7 +1,11 @@
 package main
 
+const (
+	methodTypeStorage = 5
+	filenameLength    = 1024
+)
+
 var (
-	filenameLength       int    = 1024
 	archiveNameExtension string = ".lzh"
 	backupNameExtension  string = ".bak"
 
@@ -31,8 +35,6 @@ var (
 	lzhdirsMethod string = "-lhd-"
 	pmarc0Method  string = "-pm0-"
 	pmarc2Method  string = "-pm2-"
-
-	methodTypeStorage int = 5
 
 	/* Added N.Watazaki ..V */
 	lzhuff0MethodNum int = 0

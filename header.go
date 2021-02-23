@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"strings"
+	"syscall"
+
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -912,4 +915,150 @@ func convertFilename(name *[]byte, len, size int, fromCode, toCode int, fromDeli
 		}
 	}
 
+}
+
+/* skip SFX header */
+func (l *LzHeader) seekLhaHeader(fp *io.Reader) (error, int) {
+	buffer := make([]byte, 64*1024) /* max seek size */
+	var p [64 * 1024]byte
+	var n int
+	n, err := (*fp).Read(buffer)
+	if err != nil {
+		return err, 0
+	}
+
+	for i := 0; i < n; i++ {
+		copy(p[:], buffer[i:len(buffer)-1-i])
+
+		if !(p[I_METHOD] == '-' && (p[I_METHOD+1] == 'l' || p[I_METHOD+1] == 'p') && p[I_METHOD+4] == '-') {
+			continue
+		}
+		/* found "-[lp]??-" keyword (as METHOD type string) */
+
+		/* level 0 or 1 header */
+		var calcSum byte //calcSum(p+2, p[I_HEADER_SIZE])
+		if (p[I_HEADER_LEVEL] == 0 || p[I_HEADER_LEVEL] == 1) && p[I_HEADER_SIZE] > 20 && p[I_HEADER_CHECKSUM] == calcSum {
+			//	if fseeko(fp, (p-buffer)-n, SEEK_CUR) == -1 {
+			//		return fmt.Errorf("cannot seek header"), 1
+			//	}
+			return nil, 0
+		}
+
+		/* level 2 header */
+		if p[I_HEADER_LEVEL] == 2 && p[I_HEADER_SIZE] >= 24 && p[I_ATTRIBUTE] == 0x20 {
+			//	if fseeko(fp, (p-buffer)-n, SEEK_CUR) == -1 {
+			//		return fmt.Errorf("cannot seek header"), 1
+			//	}
+			return nil, 0
+		}
+	}
+
+	//	if fseeko(fp, -n, SEEK_CUR) == -1 {
+	//		return fmt.Errorf("cannot seek header"), 1
+	//	}
+	return nil, -1
+}
+
+func removeLeadingDots(p string) string {
+	return path.Clean(p)
+}
+
+func copyPathElement(dst, src *[]byte, size int) int {
+	if size < 1 {
+		return 0
+	}
+	var i int
+	for i = 0; i < size; i++ {
+		(*dst)[i] = (*src)[i]
+		if (*dst)[i] == 0 {
+			return i
+		}
+		if (*dst)[i] == '/' {
+			i++
+			(*dst)[i] = 0
+			return i
+		}
+	}
+	i--
+	(*dst)[i] = 0
+	return i
+}
+
+func canonPath(newpath, path *[]byte, size int) int {
+	p := removeLeadingDots(string(*path))
+	(*newpath) = []byte(p)
+	return len(*newpath) - len(*path)
+}
+
+func (l LzHeader) initHeader(name string, headerLevel byte, fileinfo os.FileInfo) {
+	l.packedSize = 0
+	l.originalSize = int(fileinfo.Size())
+	l.attribute = genericAttribute
+	l.headerLevel = headerLevel
+	length := canonPath((*[]byte)(unsafe.Pointer(&l.name)), (*[]byte)(unsafe.Pointer(&name)), len(name))
+	l.crc = 0x0000
+	l.extendType = extendUnix
+	l.unixLastModifiedStamp = fileinfo.ModTime().Local().Unix()
+	/* since 00:00:00 JAN.1.1970 */
+	l.unixMode = uint16(fileinfo.Mode())
+	if stat, ok := fileinfo.Sys().(*syscall.Stat_t); ok {
+		l.unixUID = uint16(stat.Uid)
+		l.unixGid = uint16(stat.Gid)
+	}
+	if fileinfo.IsDir() {
+		copy(l.method[:], lzhdirsMethod)
+		l.attribute = genericDirectoryAttribute
+		l.originalSize = 0
+		if length > 0 && l.name[length-1] != '/' {
+			if length < len(l.name)-1 {
+				length++
+				l.name[length] = '/'
+			} else {
+				fmt.Fprintf(os.Stderr, "the length of dirname \"%s\" is too long.", l.name)
+			}
+		}
+	}
+	if fileinfo.Mode()&os.ModeSymlink == os.ModeSymlink {
+		copy(l.method[:], lzhdirsMethod)
+		l.attribute = genericDirectoryAttribute
+		l.originalSize = 0
+		max := 1024
+		if len(fileinfo.Name()) < 1024 {
+			max = len(fileinfo.Name()) - 1
+		}
+		copy(l.realname[:], fileinfo.Name()[0:max])
+	}
+}
+
+func writeUnixInfo(l *LzHeader) {
+	/* UNIX specific informations */
+
+	putWord(5)    /* size */
+	putByte(0x50) /* permission */
+	putWord(int(l.unixMode))
+
+	putWord(7)    /* size */
+	putByte(0x51) /* gid and uid */
+	putWord(int(l.unixGid))
+	putWord(int(l.unixUID))
+
+	if l.group[0] != 0 {
+		length := len(l.group)
+		putWord(length + 3) /* size */
+		putByte(0x52)       /* group name */
+		putBytes(l.group[:], length)
+	}
+
+	if l.user[0] != 0 {
+		length := len(l.user)
+		putWord(length + 3) /* size */
+		putByte(0x53)       /* user name */
+		putBytes(l.user[:], length)
+	}
+
+	if l.headerLevel == 1 {
+		putWord(7)    /* size */
+		putByte(0x54) /* time stamp */
+		putLongWord(int(l.unixLastModifiedStamp))
+	}
 }

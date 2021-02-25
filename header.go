@@ -15,12 +15,13 @@ import (
 )
 
 var (
-	getPtr      int
-	putPtr      int
-	storageSize int
-	startPtr    int
-	ptr         *[]byte
-	convertCase bool
+	getPtr        int
+	putPtr        int
+	storageSize   int
+	startPtr      int
+	ptr           *[]byte
+	convertCase   bool
+	genericFormat bool
 )
 
 type LzHeader struct {
@@ -162,6 +163,23 @@ func setupGet(p *[]byte, index, size int) {
 	getPtr = index
 	startPtr = index
 	storageSize = size
+}
+
+func setupPut(p *[]byte, index int) {
+	ptr = p
+	putPtr = index
+}
+
+func unixToGenericStamp(t int64) int {
+	tm := time.Unix(t, 0)
+	var us int
+	us = ((tm.Year() - 80) << 25) +
+		(int(tm.Month()) << 21) +
+		(tm.Day() << 16) +
+		(tm.Hour() << 11) +
+		(tm.Minute() << 5) +
+		(tm.Second() / 2)
+	return us
 }
 
 func wintimeToUnixStamp() uint64 {
@@ -320,20 +338,20 @@ func (l *LzHeader) getExtendedHeader(fp *io.Reader, headerSize int, hcrc *uint) 
 }
 
 const (
-	I_HEADER_SIZE     = 0  /* level 0,1,2   */
-	I_HEADER_CHECKSUM = 1  /* level 0,1     */
-	I_METHOD          = 2  /* level 0,1,2,3 */
-	I_PACKED_SIZE     = 7  /* level 0,1,2,3 */
-	I_ATTRIBUTE       = 19 /* level 0,1,2,3 */
-	I_HEADER_LEVEL    = 20 /* level 0,1,2,3 */
+	iHeaderSize     = 0  /* level 0,1,2   */
+	iHeaderChecksum = 1  /* level 0,1     */
+	iMethod         = 2  /* level 0,1,2,3 */
+	iPackedSize     = 7  /* level 0,1,2,3 */
+	iAttribute      = 19 /* level 0,1,2,3 */
+	iHeaderLevel    = 20 /* level 0,1,2,3 */
 
-	COMMON_HEADER_SIZE = 21 /* size of common part */
+	commonHeaderSize = 21 /* size of common part */
 
-	I_GENERIC_HEADER_SIZE = 24 /* + name_length */
-	I_LEVEL0_HEADER_SIZE  = 36 /* + name_length (unix extended) */
-	I_LEVEL1_HEADER_SIZE  = 27 /* + name_length */
-	I_LEVEL2_HEADER_SIZE  = 26 /* + padding */
-	I_LEVEL3_HEADER_SIZE  = 32
+	iGenericHeaderSize = 24 /* + nameLength */
+	iLevel0HeaderSize  = 36 /* + nameLength (unix extended) */
+	iLevel1HeaderSize  = 27 /* + nameLength */
+	iLevel2HeaderSize  = 26 /* + padding */
+	iLevel3HeaderSize  = 32
 )
 
 var (
@@ -402,19 +420,19 @@ func (l *LzHeader) getHeaderLevel0(fp *io.Reader, data []byte) (error, bool) {
 	checksum = int(getByte())
 
 	/* The data variable has been already read as COMMON_HEADER_SIZE bytes.
-	So we must read the remaining header size by the header_size. */
-	remainSize = headerSize + 2 - COMMON_HEADER_SIZE
+	So we must read the remaining header size by the headerSize. */
+	remainSize = headerSize + 2 - commonHeaderSize
 	if remainSize <= 0 {
 		return fmt.Errorf("Invalid header size (LHarc file ?)"), false
 
 	}
-	nb, err := (*fp).Read(data[COMMON_HEADER_SIZE : COMMON_HEADER_SIZE+remainSize])
+	nb, err := (*fp).Read(data[commonHeaderSize : commonHeaderSize+remainSize])
 
 	if err != nil || nb == 0 {
 		return fmt.Errorf("Invalid header (LHarc file ?)"), false
 	}
 
-	if calcSum((*[]byte)(unsafe.Pointer(&data)), I_METHOD, headerSize) != checksum {
+	if calcSum((*[]byte)(unsafe.Pointer(&data)), iMethod, headerSize) != checksum {
 		return fmt.Errorf("Checksum error (LHarc file?)"), false
 	}
 
@@ -522,21 +540,21 @@ func (l *LzHeader) getHeaderLevel1(fp *io.Reader, data []byte) (err error, ok bo
 	checksum = int(getByte())
 
 	/* The data variable has been already read as COMMON_HEADER_SIZE bytes.
-	So we must read the remaining header size by the header_size. */
-	remainSize = headerSize + 2 - COMMON_HEADER_SIZE
+	So we must read the remaining header size by the headerSize. */
+	remainSize = headerSize + 2 - commonHeaderSize
 	if remainSize <= 0 {
 		return fmt.Errorf("Invalid header size (LHarc file ?)"), false
 	}
-	nb, err := (*fp).Read(data[COMMON_HEADER_SIZE : COMMON_HEADER_SIZE+remainSize])
+	nb, err := (*fp).Read(data[commonHeaderSize : commonHeaderSize+remainSize])
 	if err != nil || nb == 0 {
 		return fmt.Errorf("Invalid header (LHarc file ?)"), false
 	}
 
-	if calcSum((*[]byte)(unsafe.Pointer(&data)), I_METHOD, headerSize) != checksum {
+	if calcSum((*[]byte)(unsafe.Pointer(&data)), iMethod, headerSize) != checksum {
 		return fmt.Errorf("Checksum error (LHarc file?)"), false
 	}
 
-	getBytes((*[]byte)(unsafe.Pointer(&l.method)), 5, 2) //sizeof(hdr->method)
+	getBytes((*[]byte)(unsafe.Pointer(&l.method)), 5, 2) //sizeof(l.method)
 	l.packedSize = getLongword()                         /* skip size */
 	l.originalSize = getLongword()
 	l.unixLastModifiedStamp = genericToUnixStamp(int64(getLongword()))
@@ -544,7 +562,7 @@ func (l *LzHeader) getHeaderLevel1(fp *io.Reader, data []byte) (err error, ok bo
 	l.headerLevel = getByte()
 
 	nameLength = int(getByte())
-	i = getBytes((*[]byte)(unsafe.Pointer(&l.name)), nameLength, 2-1) // sizeof(hdr->name)
+	i = getBytes((*[]byte)(unsafe.Pointer(&l.name)), nameLength, 2-1) // sizeof(l.name)
 	l.name[i] = 0
 
 	/* defaults for other type */
@@ -556,7 +574,7 @@ func (l *LzHeader) getHeaderLevel1(fp *io.Reader, data []byte) (err error, ok bo
 	l.crc = uint(getWord())
 	l.extendType = getByte()
 
-	dummy = headerSize + 2 - nameLength - I_LEVEL1_HEADER_SIZE
+	dummy = headerSize + 2 - nameLength - iLevel1HeaderSize
 	if dummy > 0 {
 		skipBytes(dummy) /* skip old style extend header */
 	}
@@ -570,7 +588,7 @@ func (l *LzHeader) getHeaderLevel1(fp *io.Reader, data []byte) (err error, ok bo
 
 	/* On level 1 header, size fields should be adjusted. */
 	/* the `packed_size' field contains the extended header size. */
-	/* the `header_size' field does not. */
+	/* the `headerSize' field does not. */
 	l.packedSize -= extendSize
 	l.headerSize += extendSize + 2
 
@@ -619,16 +637,16 @@ func (l *LzHeader) getHeaderLevel2(fp *io.Reader, data []byte) (error, bool) {
 
 	/* The data variable has been already read as COMMON_HEADER_SIZE bytes.
 	So we must read the remaining header size without ext-header. */
-	remainSize = headerSize - I_LEVEL2_HEADER_SIZE
+	remainSize = headerSize - iLevel2HeaderSize
 	if remainSize < 0 {
 		return fmt.Errorf("Invalid header size (LHarc file ?)"), false
 	}
-	n, err := (*fp).Read(data[COMMON_HEADER_SIZE : COMMON_HEADER_SIZE+(I_LEVEL2_HEADER_SIZE-COMMON_HEADER_SIZE)])
+	n, err := (*fp).Read(data[commonHeaderSize : commonHeaderSize+(iLevel2HeaderSize-commonHeaderSize)])
 	if err != nil || n == 0 {
 		return fmt.Errorf("Invalid header (LHarc file ?)"), false
 	}
 
-	getBytes((*[]byte)(unsafe.Pointer(&l.method)), 5, 2) // sizeof(hdr->method)
+	getBytes((*[]byte)(unsafe.Pointer(&l.method)), 5, 2) // sizeof(l.method)
 	l.packedSize = getLongword()
 	l.originalSize = getLongword()
 	l.unixLastModifiedStamp = int64(getLongword())
@@ -653,7 +671,7 @@ func (l *LzHeader) getHeaderLevel2(fp *io.Reader, data []byte) (error, bool) {
 		return err, false
 	}
 
-	padding = headerSize - I_LEVEL2_HEADER_SIZE - extendSize
+	padding = headerSize - iLevel2HeaderSize - extendSize
 	/* padding should be 0 or 1 */
 	if padding != 0 && padding != 1 {
 		return fmt.Errorf("Invalid header size (padding: %d)", padding), false
@@ -710,12 +728,12 @@ func (l *LzHeader) getHeaderLevel3(fp *io.Reader, data []byte) (error, bool) {
 	var hcrc uint
 
 	l.sizeFieldLength = getWord()
-	nb, err := (*fp).Read(data[COMMON_HEADER_SIZE : COMMON_HEADER_SIZE+I_LEVEL3_HEADER_SIZE-COMMON_HEADER_SIZE])
+	nb, err := (*fp).Read(data[commonHeaderSize : commonHeaderSize+iLevel3HeaderSize-commonHeaderSize])
 	if err != nil || nb == 0 {
 		return fmt.Errorf("Invalid header (LHarc file ?)"), false
 	}
 
-	getBytes((*[]byte)(unsafe.Pointer(&l.method)), 5, 2) //sizeof(hdr->method)
+	getBytes((*[]byte)(unsafe.Pointer(&l.method)), 5, 2) //sizeof(l.method)
 	l.packedSize = getLongword()
 	l.originalSize = getLongword()
 	l.unixLastModifiedStamp = int64(getLongword())
@@ -732,7 +750,7 @@ func (l *LzHeader) getHeaderLevel3(fp *io.Reader, data []byte) (error, bool) {
 	l.extendType = getByte()
 	l.headerSize = getLongword()
 	headerSize = l.headerSize
-	remainSize = headerSize - I_LEVEL3_HEADER_SIZE
+	remainSize = headerSize - iLevel3HeaderSize
 	if remainSize < 0 {
 		return fmt.Errorf("Invalid header size (LHarc file ?)"), false
 	}
@@ -780,12 +798,12 @@ func (l *LzHeader) getHeader(fp *io.Reader) (error, bool) {
 	}
 	data[0] = endMark
 
-	nb, err = (*fp).Read(data[1:COMMON_HEADER_SIZE])
+	nb, err = (*fp).Read(data[1:commonHeaderSize])
 	if err != nil || nb == 0 {
 		return fmt.Errorf("Invalid header (LHarc file ?)"), false
 	}
 
-	switch data[I_HEADER_LEVEL] {
+	switch data[iHeaderLevel] {
 	case 0:
 		err, header := l.getHeaderLevel0(fp, data[:])
 		if err != nil || header == false {
@@ -807,7 +825,7 @@ func (l *LzHeader) getHeader(fp *io.Reader) (error, bool) {
 			return err, false
 		}
 	default:
-		return fmt.Errorf("Unknown level header (level %d)", data[I_HEADER_LEVEL]), false
+		return fmt.Errorf("Unknown level header (level %d)", data[iHeaderLevel]), false
 	}
 
 	/* filename conversion */
@@ -871,8 +889,8 @@ func (l *LzHeader) getHeader(fp *io.Reader) (error, bool) {
 		p := strings.Index(string(l.name[:]), "|")
 
 		if p != -1 {
-			/* hdr->name is symbolic link name */
-			/* hdr->realname is real name */
+			/* l.name is symbolic link name */
+			/* l.realname is real name */
 			copy(l.realname[:], l.name[p:len(l.name)-1])
 			/* ok */
 		} else {
@@ -930,14 +948,14 @@ func (l *LzHeader) seekLhaHeader(fp *io.Reader) (error, int) {
 	for i := 0; i < n; i++ {
 		copy(p[:], buffer[i:len(buffer)-1-i])
 
-		if !(p[I_METHOD] == '-' && (p[I_METHOD+1] == 'l' || p[I_METHOD+1] == 'p') && p[I_METHOD+4] == '-') {
+		if !(p[iMethod] == '-' && (p[iMethod+1] == 'l' || p[iMethod+1] == 'p') && p[iMethod+4] == '-') {
 			continue
 		}
 		/* found "-[lp]??-" keyword (as METHOD type string) */
 
 		/* level 0 or 1 header */
 		var calcSum byte //calcSum(p+2, p[I_HEADER_SIZE])
-		if (p[I_HEADER_LEVEL] == 0 || p[I_HEADER_LEVEL] == 1) && p[I_HEADER_SIZE] > 20 && p[I_HEADER_CHECKSUM] == calcSum {
+		if (p[iHeaderLevel] == 0 || p[iHeaderLevel] == 1) && p[iHeaderSize] > 20 && p[iHeaderChecksum] == calcSum {
 			//	if fseeko(fp, (p-buffer)-n, SEEK_CUR) == -1 {
 			//		return fmt.Errorf("cannot seek header"), 1
 			//	}
@@ -945,7 +963,7 @@ func (l *LzHeader) seekLhaHeader(fp *io.Reader) (error, int) {
 		}
 
 		/* level 2 header */
-		if p[I_HEADER_LEVEL] == 2 && p[I_HEADER_SIZE] >= 24 && p[I_ATTRIBUTE] == 0x20 {
+		if p[iHeaderLevel] == 2 && p[iHeaderSize] >= 24 && p[iAttribute] == 0x20 {
 			//	if fseeko(fp, (p-buffer)-n, SEEK_CUR) == -1 {
 			//		return fmt.Errorf("cannot seek header"), 1
 			//	}
@@ -1061,4 +1079,308 @@ func writeUnixInfo(l *LzHeader) {
 		putByte(0x54) /* time stamp */
 		putLongWord(int(l.unixLastModifiedStamp))
 	}
+}
+
+func (l *LzHeader) writeHeaderLevel0(data []byte, pathname []byte) int {
+	var limit int
+	var nameLength int
+	var headerSize int
+
+	setupPut((*[]byte)(unsafe.Pointer(&data)), 0)
+
+	putByte(0x00) /* header size */
+	putByte(0x00) /* check sum */
+	putBytes(l.method[:], 5)
+	putLongWord(l.packedSize)
+	putLongWord(l.originalSize)
+	//putLongWord(unixToGenericStamp(l.unixLastModifiedStamp))
+	putByte(l.attribute)
+	putByte(l.headerLevel) /* level 0 */
+
+	/* write pathname (level 0 header contains the directory part) */
+	nameLength = len(pathname)
+	if genericFormat {
+		limit = 255 - iGenericHeaderSize + 2
+	} else {
+		limit = 255 - iLevel0HeaderSize + 2
+	}
+
+	if nameLength > limit {
+		fmt.Fprintf(os.Stderr, "the length of pathname \"%s\" is too long.", pathname)
+		nameLength = limit
+	}
+	putByte(byte(nameLength))
+	putBytes(pathname, nameLength)
+	putWord(int(l.crc))
+
+	if genericFormat {
+		headerSize = iGenericHeaderSize + nameLength - 2
+		data[iHeaderSize] = byte(headerSize)
+		data[iHeaderChecksum] = byte(calcSum((*[]byte)(unsafe.Pointer(&data)), iMethod, headerSize))
+	} else {
+		/* write old-style extend header */
+		putByte(extendUnix)
+		putByte(currentUnixMinorVersion)
+		putLongWord(int(l.unixLastModifiedStamp))
+		putWord(int(l.unixMode))
+		putWord(int(l.unixUID))
+		putWord(int(l.unixGid))
+
+		/* size of extended header is 12 */
+		headerSize = iLevel0HeaderSize + nameLength - 2
+		data[iHeaderSize] = byte(headerSize)
+		data[iHeaderChecksum] = byte(calcSum((*[]byte)(unsafe.Pointer(&data)), iMethod, headerSize))
+	}
+
+	return headerSize + 2
+}
+
+func (l *LzHeader) writeHeaderLevel1(data []byte, pathname []byte) int {
+	var nameLength, dirLength, limit int
+	var basename, dirname []byte
+	var headerSize int
+	var extendHeaderTop []byte
+	var extendHeaderSize int
+	index := strings.Index(string(pathname), string(lhaPathsep))
+
+	if index != 0 {
+		basename = pathname[0:index]
+		index++
+		nameLength = len(basename)
+		dirname = pathname
+		dirLength = index - len(dirname)
+	} else {
+		basename = pathname
+		nameLength = len(basename)
+		dirname = []byte("")
+		dirLength = 0
+	}
+
+	setupPut((*[]byte)(unsafe.Pointer(&data)), 0)
+
+	putByte(0x00) /* header size */
+	putByte(0x00) /* check sum */
+	putBytes(l.method[:], 5)
+	putLongWord(l.packedSize)
+	putLongWord(l.originalSize)
+	putLongWord(unixToGenericStamp(l.unixLastModifiedStamp))
+	putByte(0x20)
+	putByte(l.headerLevel) /* level 1 */
+
+	/* level 1 header: write filename (basename only) */
+	limit = 255 - iLevel1HeaderSize + 2
+	if nameLength > limit {
+		putByte(0) /* name length */
+	} else {
+		putByte(byte(nameLength))
+		putBytes(basename, nameLength)
+	}
+
+	putWord(int(l.crc))
+
+	if genericFormat {
+		putByte(0x00)
+	} else {
+		putByte(extendUnix)
+	}
+
+	/* write extend header from here. */
+	copy(extendHeaderTop[:], data[putPtr+2:putPtr+2+len(data)])
+	//extendHeaderTop = putPtr + 2 /* +2 for the field `next header size' */
+	headerSize = len(extendHeaderTop) // - data - 2
+
+	/* write filename and dirname */
+
+	if nameLength > limit {
+		putWord(nameLength + 3) /* size */
+		putByte(0x01)           /* filename */
+		putBytes(basename, nameLength)
+	}
+
+	if dirLength > 0 {
+		putWord(dirLength + 3) /* size */
+		putByte(0x02)          /* dirname */
+		putBytes(dirname, dirLength)
+	}
+
+	if !genericFormat {
+		writeUnixInfo(l)
+	}
+
+	putWord(0x0000) /* next header size */
+
+	extendHeaderSize = len(extendHeaderTop) - len(data[putPtr:putPtr+len(data)])
+	/* On level 1 header, the packed size field is contains the ext-header */
+	l.packedSize += len(extendHeaderTop) - len(data[putPtr:putPtr+len(data)])
+	/* put `skip size' */
+	setupPut((*[]byte)(unsafe.Pointer(&data)), iPackedSize)
+	putLongWord(l.packedSize)
+
+	data[iHeaderSize] = byte(headerSize)
+	data[iHeaderChecksum] = byte(calcSum((*[]byte)(unsafe.Pointer(&data)), iMethod, headerSize))
+
+	return headerSize + extendHeaderSize + 2
+}
+
+func (l *LzHeader) writeHeaderLevel2(data []byte, pathname []byte) int {
+	var nameLength, dirLength int
+	var basename, dirname []byte
+	var headerSize int
+	var extendHeaderTop []byte
+	var headercrcPtr []byte
+	var hcrc uint
+	index := strings.Index(string(pathname), string(lhaPathsep))
+
+	if index != 0 {
+		basename = pathname[0:index]
+		index++
+		nameLength = len(basename)
+		dirname = pathname
+		dirLength = index - len(dirname)
+	} else {
+		basename = pathname
+		nameLength = len(basename)
+		dirname = []byte("")
+		dirLength = 0
+	}
+	setupPut((*[]byte)(unsafe.Pointer(&data)), 0)
+
+	putWord(0x0000) /* header size */
+	putBytes(l.method[:], 5)
+	putLongWord(l.packedSize)
+	putLongWord(l.originalSize)
+	putLongWord(int(l.unixLastModifiedStamp))
+	putByte(0x20)
+	putByte(l.headerLevel) /* level 2 */
+
+	putWord(int(l.crc))
+
+	if genericFormat {
+		putByte(0x00)
+	} else {
+		putByte(extendUnix)
+	}
+
+	/* write extend header from here. */
+	/* write extend header from here. */
+	copy(extendHeaderTop[:], data[putPtr+2:putPtr+2+len(data)])
+	//extendHeaderTop = putPtr + 2 /* +2 for the field `next header size' */
+	headerSize = len(extendHeaderTop) // - data - 2
+	//extendHeaderTop = putPtr + 2 /* +2 for the field `next header size' */
+
+	/* write common header */
+	putWord(5)
+	putByte(0x00)
+	copy(headercrcPtr[:], data[putPtr:putPtr+len(data)])
+	//headercrcPtr = len(data[putPtr:len(data)])
+	putWord(0x0000) /* header CRC */
+
+	/* write filename and dirname */
+	/* must have this header, even if the nameLength is 0. */
+	putWord(nameLength + 3) /* size */
+	putByte(0x01)           /* filename */
+	putBytes(basename, nameLength)
+
+	if dirLength > 0 {
+		putWord(dirLength + 3) /* size */
+		putByte(0x02)          /* dirname */
+		putBytes(dirname, dirLength)
+	}
+
+	if !genericFormat {
+		writeUnixInfo(l)
+	}
+
+	putWord(0x0000) /* next header size */
+
+	headerSize = len(data) - len(data[putPtr:putPtr-len(data)]) //- data
+	if (headerSize & 0xff) == 0 {
+		/* cannot put zero at the first byte on level 2 header. */
+		/* adjust header size. */
+		putByte(0) /* padding */
+		headerSize++
+	}
+
+	/* put header size */
+	setupPut((*[]byte)(unsafe.Pointer(&data)), iHeaderSize)
+	putWord(headerSize)
+
+	/* put header CRC in extended header */
+	initialize_crc(&hcrc)
+	hcrc = calcCrc(hcrc, (*[]byte)(unsafe.Pointer(&data)), 0, uint(headerSize))
+	setupPut((*[]byte)(unsafe.Pointer(&headercrcPtr)), 0)
+	putWord(int(hcrc))
+
+	return headerSize
+}
+
+func (l *LzHeader) writeHeader(fp *io.Writer) int {
+	var headerSize int
+	var data [lzheaderStorage]byte
+
+	archiveKanjiCode := codeSJIS
+	systemKanjiCode := defaultSystemKanjiCode
+	var archiveDelim []byte = []byte("\377")
+	var systemDelim []byte = []byte("/")
+	filenameCase := none
+	var pathname [filenameLength]byte
+
+	if optionalArchiveKanjiCode != none {
+		archiveKanjiCode = optionalArchiveKanjiCode
+	}
+	if optionalSystemKanjiCode != none {
+		systemKanjiCode = optionalSystemKanjiCode
+	}
+
+	if genericFormat && convertCase {
+		filenameCase = toUpper
+	}
+
+	if l.headerLevel == 0 {
+		archiveDelim = []byte("\\")
+	}
+
+	if (l.unixMode & uint16(unixFileSymlink)) == uint16(unixFileSymlink) {
+		var p int
+		p = strings.Index(string(l.name[:]), "|")
+
+		if p != -1 {
+			fmt.Fprintf(os.Stderr, "symlink name \"%s\" contains '|' char. change it into '_'", l.name)
+			l.name[p] = '_'
+		}
+		buf := make([]byte, 1024)
+		buf = append(buf, l.name[:]...)
+		buf = append(buf, '|')
+		buf = append(buf, l.realname[:]...)
+		copy(pathname[:], buf)
+	} else {
+		copy(pathname[:], l.name[:])
+		pathname[len(pathname)-1] = 0
+	}
+
+	convertFilename((*[]byte)(unsafe.Pointer(&pathname)),
+		len(pathname),
+		2,
+		systemKanjiCode,
+		archiveKanjiCode,
+		string(systemDelim),
+		string(archiveDelim), filenameCase)
+
+	switch l.headerLevel {
+	case 0:
+		headerSize = l.writeHeaderLevel0(data[:], pathname[:])
+	case 1:
+		headerSize = l.writeHeaderLevel1(data[:], pathname[:])
+	case 2:
+		headerSize = l.writeHeaderLevel2(data[:], pathname[:])
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown level header (level %d)", l.headerLevel)
+		os.Exit(1)
+	}
+	n, err := (*fp).Write(data[:])
+	if n == 0 || err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot write to temporary file")
+		os.Exit(-1)
+	}
+	return headerSize
 }

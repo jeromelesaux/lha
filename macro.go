@@ -1,17 +1,45 @@
-package main
+package lha
 
 const (
 	methodTypeStorage = 5
 	filenameLength    = 1024
 
-	lzheaderStorage = 4096
-	ucharMax        = (0x7F*2 + 1)
+	lzheaderStorage      = 4096
+	ucharMax             = (0x7F*2 + 1)
+	charBit         byte = 8
+	/*      #if nt > np  npt nt #else  npt np #endif  */
+	Npt byte = 0x80
+	/* slide.c */
+	Maxmatch uint16 = 256 /* formerly f (not more than uchar_max + 1) */
+	Nc       uint16 = (ucharMax + Maxmatch + 2 - uint16(threshold))
+	ushrtBit byte   = 16 /* (char_bit * sizeof(ushort)) */
+	Nt       uint16 = uint16(ushrtBit + 3)
+	/* Added N.Watazaki ..^ */
+
+	lzhuff0Dicbit int = 0  /* no compress */
+	lzhuff1Dicbit int = 12 /* 2^12 =  4kb sliding dictionary */
+	lzhuff2Dicbit int = 13 /* 2^13 =  8kb sliding dictionary */
+	lzhuff3Dicbit int = 13 /* 2^13 =  8kb sliding dictionary */
+	lzhuff4Dicbit int = 12 /* 2^12 =  4kb sliding dictionary */
+	lzhuff5Dicbit int = 13 /* 2^13 =  8kb sliding dictionary */
+	lzhuff6Dicbit int = 15 /* 2^15 = 32kb sliding dictionary */
+	lzhuff7Dicbit int = 16 /* 2^16 = 64kb sliding dictionary */
+	larcDicbit    int = 11 /* 2^11 =  2kb sliding dictionary */
+	larc5Dicbit   int = 12 /* 2^12 =  4kb sliding dictionary */
+	larc4Dicbit   int = 0  /* no compress */
+	pmarc0Dicbit  int = 0  /* no compress */
+	pmarc2Dicbit  int = 13 /* 2^13 =  8kb sliding dictionary */
+
+	maxDicbit int = lzhuff7Dicbit
+	Np        int = (maxDicbit + 1)
 )
 
 var (
 	crctable             [ucharMax + 1]uint
 	archiveNameExtension string = ".lzh"
 	backupNameExtension  string = ".bak"
+
+	dtext []byte
 
 	/* for filename conversion */
 	none     int = 0
@@ -55,24 +83,6 @@ var (
 	lzhdirsMethodNum int = 11
 	pmarc0MethodNum  int = 12
 	pmarc2MethodNum  int = 13
-
-	/* Added N.Watazaki ..^ */
-
-	lzhuff0Dicbit int = 0  /* no compress */
-	lzhuff1Dicbit int = 12 /* 2^12 =  4kb sliding dictionary */
-	lzhuff2Dicbit int = 13 /* 2^13 =  8kb sliding dictionary */
-	lzhuff3Dicbit int = 13 /* 2^13 =  8kb sliding dictionary */
-	lzhuff4Dicbit int = 12 /* 2^12 =  4kb sliding dictionary */
-	lzhuff5Dicbit int = 13 /* 2^13 =  8kb sliding dictionary */
-	lzhuff6Dicbit int = 15 /* 2^15 = 32kb sliding dictionary */
-	lzhuff7Dicbit int = 16 /* 2^16 = 64kb sliding dictionary */
-	larcDicbit    int = 11 /* 2^11 =  2kb sliding dictionary */
-	larc5Dicbit   int = 12 /* 2^12 =  4kb sliding dictionary */
-	larc4Dicbit   int = 0  /* no compress */
-	pmarc0Dicbit  int = 0  /* no compress */
-	pmarc2Dicbit  int = 13 /* 2^13 =  8kb sliding dictionary */
-
-	maxDicbit int = lzhuff7Dicbit
 
 	maxDicsiz int = (int(1) << maxDicbit)
 
@@ -139,27 +149,11 @@ var (
 
 	crcpoly uint16 = 0xa001 /* crc-16 (x^16+x^15+x^2+1) */
 
-	charBit = 8
-	/* dhuf.c */
-	nChar     int = (256 + 60 - threshold + 1)
-	treesizeC int = (nChar * 2)
-	treesizeP int = (128 * 2)
-	treesize  int = (treesizeC + treesizeP)
-	rootC     int = 0
-	rootP     int = treesizeC
-
 	/* huf.c */
-	ushrtBit byte   = 16 /* (char_bit * sizeof(ushort)) */
-	np       int    = (maxDicbit + 1)
-	nt       uint16 = uint16(ushrtBit + 3)
-	nc       uint16 = (ucharMax + maxmatch + 2 - uint16(threshold))
 
 	pbit byte = 5 /* smallest integer such that (1 << pbit) > * np */
 	tbit byte = 5 /* smallest integer such that (1 << tbit) > * nt */
 	cbit byte = 9 /* smallest integer such that (1 << cbit) > * nc */
-
-	/*      #if nt > np  npt nt #else  npt np #endif  */
-	npt byte = 0x80
 
 	/* larc.c */
 	magic0 byte = 18
@@ -177,7 +171,6 @@ var (
 	n2        int = (2*n1 - 1) /* # of nodes in huffman tree */
 	extrabits int = 8          /* >= log2(f-threshold+258-n1) */
 	bufbits   int = 16         /* >= log2(maxbuf) */
-	lenfield  int = 4          /* bit size of length field for tree output */
 
 	/* util.c */
 	buffersize int = 2048
@@ -188,10 +181,6 @@ var (
 	   nil        0
 	   hash(p, c) ((p) + ((c) << hash1) + hash2)
 	*/
-
-	/* slide.c */
-	maxmatch  uint16 = 256 /* formerly f (not more than uchar_max + 1) */
-	threshold int    = 3   /* choose optimal value */
 
 )
 
@@ -219,7 +208,8 @@ func initialize_crc(crc *uint) {
 }
 
 func updateCrc(crc *uint, c uint) uint {
-	return 	crctable[((*crc)^(c))&0xff] ^= ((*crc) >> charBit)
+
+	return crctable[((*crc)^(c))&0xff] ^ ((*crc) >> charBit)
 }
 
 func strequ(a, b string) bool {

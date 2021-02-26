@@ -1,4 +1,6 @@
-package main
+package lha
+
+import "io"
 
 type StringPool struct {
 	used   int
@@ -8,8 +10,8 @@ type StringPool struct {
 }
 
 type interfacing struct {
-	infile   []byte
-	outfile  []byte
+	infile   io.Reader
+	outfile  io.Writer
 	original int
 	packed   int
 	readSize int

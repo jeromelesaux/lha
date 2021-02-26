@@ -1,4 +1,4 @@
-package main
+package lha
 
 import (
 	"fmt"

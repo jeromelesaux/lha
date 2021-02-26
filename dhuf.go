@@ -307,7 +307,7 @@ func encodeCDyn(c uint) {
 	updateC(int(c))
 }
 
-func decodeCDyn( /* void */ ) int {
+func decodeCDyn( /* void */ ) uint16 {
 	var c int
 	var buf, cnt int16
 
@@ -337,7 +337,7 @@ func decodeCDyn( /* void */ ) int {
 	if c == n1 {
 		c += int(getbits(8))
 	}
-	return c
+	return uint16(c)
 }
 
 func decodePDyn( /* void */ ) uint16 {

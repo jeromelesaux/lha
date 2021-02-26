@@ -136,7 +136,7 @@ func decodeStartFix( /*void*/ ) {
 /* lh3 */
 var blocksize uint16 = 0
 
-func decodeCSt0( /*void*/ ) int {
+func decodeCSt0( /*void*/ ) uint16 {
 	var (
 		i, j int
 	)
@@ -173,12 +173,12 @@ func decodeCSt0( /*void*/ ) int {
 	if j == n1-1 {
 		j += int(getbits(byte(extrabits)))
 	}
-	return j
+	return uint16(j)
 }
 
 /* ------------------------------------------------------------------------ */
 /* lh1, 3 */
-func decodePSt0( /*void*/ ) int {
+func decodePSt0( /*void*/ ) uint16 {
 	var (
 		i, j int
 	)
@@ -202,5 +202,5 @@ func decodePSt0( /*void*/ ) int {
 		}
 		fillbuf(ptLen[j] - 8)
 	}
-	return (j << 6) + int(getbits(6))
+	return uint16((j << 6) + int(getbits(6)))
 }

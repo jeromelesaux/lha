@@ -1,6 +1,9 @@
 package lha
 
 const (
+	packageName       = "LHa for UNIX"
+	packageVersion    = "1.0"
+	platForm          = "_____"
 	methodTypeStorage = 5
 	filenameLength    = 1024
 
@@ -203,7 +206,7 @@ func peekbits(n byte) int {
 
 /* crcio.c */
 
-func initialize_crc(crc *uint) {
+func initializeCrc(crc *uint) {
 	(*crc) = 0
 }
 

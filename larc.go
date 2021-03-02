@@ -13,6 +13,7 @@ package lha
 var (
 	flag, flagcnt, matchpos int
 	loc                     uint16
+	extractDirectory        string
 )
 
 /* ------------------------------------------------------------------------ */

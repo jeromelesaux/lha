@@ -24,6 +24,11 @@ var (
 	genericFormat bool
 )
 
+type LzHeaderList struct {
+	next *LzHeaderList
+	hdr  *LzHeader
+}
+
 type LzHeader struct {
 	headerSize      int
 	sizeFieldLength int
@@ -663,7 +668,7 @@ func (l *LzHeader) getHeaderLevel2(fp *io.Reader, data []byte) (error, bool) {
 	l.extendType = getByte()
 	extendSize = getWord()
 
-	initialize_crc(&hcrc)
+	initializeCrc(&hcrc)
 
 	hcrc = calcCrc(hcrc, (*[]byte)(unsafe.Pointer(&data)), 0, uint(n-len(data)))
 	err, extendSize = l.getExtendedHeader(fp, extendSize, &hcrc)
@@ -756,7 +761,7 @@ func (l *LzHeader) getHeaderLevel3(fp *io.Reader, data []byte) (error, bool) {
 	}
 	extendSize = getLongword()
 
-	initialize_crc(&hcrc)
+	initializeCrc(&hcrc)
 	hcrc = calcCrc(hcrc, (*[]byte)(unsafe.Pointer(&data)), 0, uint(nb-len(data)))
 
 	err, extendSize = l.getExtendedHeader(fp, extendSize, &hcrc)
@@ -1306,7 +1311,7 @@ func (l *LzHeader) writeHeaderLevel2(data []byte, pathname []byte) int {
 	putWord(headerSize)
 
 	/* put header CRC in extended header */
-	initialize_crc(&hcrc)
+	initializeCrc(&hcrc)
 	hcrc = calcCrc(hcrc, (*[]byte)(unsafe.Pointer(&data)), 0, uint(headerSize))
 	setupPut((*[]byte)(unsafe.Pointer(&headercrcPtr)), 0)
 	putWord(int(hcrc))

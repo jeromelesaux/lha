@@ -15,10 +15,6 @@ const (
 	EOF int = 0
 )
 
-func initializeCrc(crc *uint) {
-	*crc = 0
-}
-
 func initCodeCache() {
 	getcEucCache = EOF
 }

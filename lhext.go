@@ -18,10 +18,11 @@ var (
 	IgnoreDirectory         bool
 	OutputToStdout          bool
 	Verbose                 bool
+	VerboseListing          bool
 	DecodeMacbinaryContents bool
 	readingFilename         string
 	writingFilename         string
-	ArchiveName             string
+	archiveName             string
 	CmdFilev                []string
 
 	methods = []string{Lzhuff0Method,
@@ -154,37 +155,147 @@ func writeArchiveTail(nafp *io.Writer) {
 	(*nafp).Write([]byte{0x00})
 }
 
-func CommandAdd() error {
+func CommandAdd(archiveFilepath string) error {
+	archiveName = archiveFilepath
+
 	return nil
 }
 
-func CommandList() error {
-	return nil
-}
-
-func CommadDelete() error {
-	return nil
-}
-
-func CommandExtract() error {
+func CommandList(archiveFilepath string) error {
+	archiveName = archiveFilepath
+	var afp *io.Reader
 	var hdr LzHeader
-	var pos int
-	var afp io.Reader
-	//var read_size int
+	var i int
+
+	var packedSizeTotal int
+	var originalSizeTotal int
+	var listFiles int
+	var err error
+
+	/* initialize total count */
 
 	/* open archive file */
-	afp, err := os.Open(ArchiveName)
+	f, err := os.Open(archiveName)
 	if err != nil {
-		return fmt.Errorf("Cannot open archive file \"%s\"", ArchiveName)
+		return fmt.Errorf("Cannot open archive \"%s\"", archiveName)
+	}
+	*afp = f
+
+	/* print header message */
+	if !Quiet {
+		listHeader()
 	}
 
-	if archiveIsMsdosSfx1([]byte(ArchiveName)) {
-		hdr.SeekLhaHeader(&afp)
+	/* print each file information */
+	var hasHeader bool
+	for {
+		err, hasHeader = hdr.GetHeader(afp)
+		if !hasHeader {
+			break
+		}
+		if needFile(string(hdr.Name[:])) {
+			listOne(&hdr)
+			listFiles++
+			packedSizeTotal += hdr.PackedSize
+			originalSizeTotal += hdr.OriginalSize
+		}
+
+		i = hdr.PackedSize
+		v := make([]byte, i)
+		(*afp).Read(v)
+	}
+
+	/* close archive file */
+	f.Close()
+
+	/* print tailer message */
+	if !Quiet {
+		listTailer(listFiles, packedSizeTotal, originalSizeTotal)
+	}
+
+	return err
+}
+
+func listTailer(listFiles, packedSizeTotal, originalSizeTotal int) {
+	printBar()
+	v := 's'
+	if listFiles == 1 {
+		v = ' '
+	}
+	fmt.Printf(" Total %9d file%c ", listFiles, v)
+	printSize(packedSizeTotal, originalSizeTotal)
+	fmt.Printf(" ")
+	if VerboseListing {
+		fmt.Printf("           ")
+	}
+	printStamp(0)
+	fmt.Printf("/n")
+}
+
+func printBar() {
+	if VerboseListing {
+		if Verbose {
+			/*      PERMISSION  UID  GID    PACKED    SIZE  RATIO METHOD CRC     STAMP            LV */
+			fmt.Printf("---------- ----------- ------- ------- ------ ---------- ------------------- ---\n")
+		} else {
+			/*      PERMISSION  UID  GID    PACKED    SIZE  RATIO METHOD CRC     STAMP     NAME */
+			fmt.Printf("---------- ----------- ------- ------- ------ ---------- ------------ ----------\n")
+		}
+	} else {
+		if Verbose {
+			/*      PERMISSION  UID  GID      SIZE  RATIO     STAMP     LV */
+			fmt.Printf("---------- ----------- ------- ------ ------------ ---\n")
+		} else {
+			/*      PERMISSION  UID  GID      SIZE  RATIO     STAMP           NAME */
+			fmt.Printf("---------- ----------- ------- ------ ------------ --------------------\n")
+		}
+	}
+}
+
+func listHeader() {
+	if VerboseListing {
+		if Verbose {
+			fmt.Printf("PERMISSION  UID  GID    PACKED    SIZE  RATIO METHOD CRC     STAMP            LV\n")
+		} else {
+			fmt.Printf("PERMISSION  UID  GID    PACKED    SIZE  RATIO METHOD CRC     STAMP     NAME\n")
+		}
+	} else {
+		if Verbose {
+			fmt.Printf("PERMISSION  UID  GID      SIZE  RATIO     STAMP     LV\n")
+		} else {
+			fmt.Printf("PERMISSION  UID  GID      SIZE  RATIO     STAMP           NAME\n")
+		}
+	}
+	printBar()
+}
+func CommadDelete(archiveFilepath string) error {
+	archiveName = archiveFilepath
+
+	return nil
+}
+
+func CommandExtract(archiveFilepath string) error {
+	var hdr LzHeader
+	var pos int
+	var afp *io.Reader
+	//var read_size int
+
+	archiveName = archiveFilepath
+
+	/* open archive file */
+	f, err := os.Open(archiveName)
+	if err != nil {
+		return fmt.Errorf("Cannot open archive file \"%s\"", archiveName)
+	}
+	*afp = f
+
+	if archiveIsMsdosSfx1([]byte(archiveName)) {
+		hdr.SeekLhaHeader(afp)
 	}
 
 	/* extract each files */
 	for {
-		err, hasHeader := hdr.GetHeader(&afp)
+		err, hasHeader := hdr.GetHeader(afp)
 		if err != nil {
 			return err
 		}
@@ -193,26 +304,26 @@ func CommandExtract() error {
 		}
 		pos = 0
 		if needFile(string(hdr.Name[:])) {
-			readSize, err := extractOne(&afp, &hdr)
+			readSize, err := extractOne(afp, &hdr)
 			if err != nil {
 				return err
 			}
 			if readSize != hdr.PackedSize {
 				/* when error occurred in extract_one(), should adjust
 				   point of file stream */
-				if err := skipToNextpos(&afp, pos, hdr.PackedSize, readSize); err != nil {
+				if err := skipToNextpos(afp, pos, hdr.PackedSize, readSize); err != nil {
 					return fmt.Errorf("Cannot seek to next header position from \"%s\"", hdr.Name)
 				}
 			}
 		} else {
-			if err := skipToNextpos(&afp, pos, hdr.PackedSize, 0); err == nil {
+			if err := skipToNextpos(afp, pos, hdr.PackedSize, 0); err == nil {
 				fmt.Fprintf(os.Stdout, "Cannot seek to next header position from \"%s\"", hdr.Name)
 			}
 		}
 	}
 
 	/* close archive file */
-	afp.(*os.File).Close()
+	f.Close()
 
 	/* adjust directory information */
 	adjustDirinfo()
@@ -419,7 +530,7 @@ func extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 
 	if (hdr.UnixMode&uint16(UnixFileTypemask)) == uint16(UnixFileRegular) && method != LzhdirsMethodNum {
 		//	extractRegular:
-		readingFilename = ArchiveName
+		readingFilename = archiveName
 		writingFilename = string(name[:])
 		if OutputToStdout || VerifyMode {
 			/* "Icon\r" should be a resource fork file encoded in MacBinary
@@ -575,4 +686,228 @@ func needFile(name string) bool {
 		}
 	}
 	return false
+}
+
+func listOne(hdr *LzHeader) {
+	var mode int
+	var p string
+	var method [6]byte
+	var modebits [11]byte = [11]byte{'-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-'}
+
+	if Verbose {
+		if (int(hdr.UnixMode) & UnixFileSymlink) != UnixFileSymlink {
+			fmt.Printf("%s\n", hdr.Name)
+		} else {
+			fmt.Printf("%s -> %s\n", hdr.Name, hdr.Realname)
+		}
+	}
+	copy(method[:], hdr.Method[:])
+	method[5] = 0
+
+	switch hdr.ExtendType {
+	case ExtendUnix:
+		mode = int(hdr.UnixMode)
+
+		if mode&UnixFileDirectory != 0 {
+			modebits[0] = 'd'
+		} else {
+			if (mode & UnixFileSymlink) == UnixFileSymlink {
+				modebits[0] = 'l'
+			} else {
+				modebits[0] = '-'
+			}
+		}
+
+		if mode&UnixOwnerReadPerm != 0 {
+			modebits[1] = 'r'
+		}
+		if mode&UnixOwnerWritePerm != 0 {
+			modebits[2] = 'w'
+		}
+		if mode&UnixSetuid != 0 {
+			modebits[3] = 's'
+		} else {
+			if mode&UnixOwnerExecPerm != 0 {
+				modebits[3] = 'x'
+			}
+		}
+		if mode&UnixGroupReadPerm != 0 {
+			modebits[4] = 'r'
+		}
+		if mode&UnixGroupWritePerm != 0 {
+			modebits[5] = 'w'
+		}
+		if mode&UnixSetgid != 0 {
+			modebits[6] = 's'
+		} else {
+			if mode&UnixGroupExecPerm != 0 {
+				modebits[6] = 'x'
+			}
+		}
+		if mode&UnixOtherReadPerm != 0 {
+			modebits[7] = 'r'
+		}
+		if mode&UnixOtherWritePerm != 0 {
+			modebits[8] = 'w'
+		}
+		if mode&UnixStickybit != 0 {
+			modebits[9] = 't'
+		} else {
+			if mode&UnixOtherExecPerm != 0 {
+				modebits[9] = 'x'
+			}
+		}
+		modebits[10] = 0
+
+		fmt.Printf("%s ", modebits)
+
+	case ExtendOs68k:
+		/**/
+	case ExtendXosk: /**/
+		mode = int(hdr.UnixMode)
+		if mode&oskDirectoryPerm != 0 {
+			modebits[0] = 'd'
+		}
+		if mode&oskSharedPerm != 0 {
+			modebits[1] = 's'
+		}
+		if mode&oskOtherExecPerm != 0 {
+			modebits[2] = 'e'
+		}
+		if mode&oskOtherWritePerm != 0 {
+			modebits[3] = 'w'
+		}
+		if mode&oskOtherReadPerm != 0 {
+			modebits[4] = 'r'
+		}
+		if mode&oskOwnerExecPerm != 0 {
+			modebits[5] = 'e'
+		}
+		if mode&oskOwnerWritePerm != 0 {
+			modebits[6] = 'w'
+		}
+		if mode&oskOwnerReadPerm != 0 {
+			modebits[7] = 'r'
+		}
+
+		fmt.Printf("%s ", modebits[0:8])
+	default:
+		switch hdr.ExtendType { /* max 18 characters */
+		case ExtendGeneric:
+			p = "[generic]"
+
+		case ExtendCpm:
+			p = "[CP/M]"
+
+		case ExtendFlex:
+			p = "[FLEX]"
+			break
+		case ExtendOs9:
+			p = "[OS-9]"
+			break
+		case ExtendOs68k:
+			p = "[OS-9/68K]"
+			break
+		case ExtendMsdos:
+			p = "[MS-DOS]"
+			break
+		case ExtendMacos:
+			p = "[Mac OS]"
+			break
+		case ExtendOs2:
+			p = "[OS/2]"
+			break
+		case ExtendHuman:
+			p = "[Human68K]"
+			break
+		case Extend0s386:
+			p = "[OS-386]"
+			break
+		case ExtendRunser:
+			p = "[Runser]"
+			break
+
+			/* This ID isn't fixed */
+		case ExtendTownsos:
+			p = "[TownsOS]"
+			break
+
+		case ExtendJava:
+			p = "[JAVA]"
+			break
+			/* Ouch!  Please customize it's ID.  */
+		default:
+			p = "[unknown]"
+			break
+		}
+		fmt.Printf("%-11.11s", p)
+	}
+
+	switch hdr.ExtendType {
+	case ExtendUnix:
+	case ExtendOs68k:
+	case ExtendXosk:
+		if hdr.User[0] != 0 {
+			fmt.Printf("%5.5s/", hdr.User)
+		} else {
+			fmt.Printf("%5d/", hdr.UnixUID)
+		}
+
+		if hdr.Group[0] != 0 {
+			fmt.Printf("%-5.5s ", hdr.Group)
+		} else {
+			fmt.Printf("%-5d ", hdr.UnixGid)
+		}
+
+	default:
+		fmt.Printf("%12s", "")
+
+	}
+
+	printSize(hdr.PackedSize, hdr.OriginalSize)
+
+	if VerboseListing {
+		if hdr.HasCrc {
+			fmt.Printf(" %s %04x", method, hdr.Crc)
+		} else {
+			fmt.Printf(" %s ****", method)
+		}
+	}
+
+	fmt.Printf(" ")
+	printStamp(hdr.UnixLastModifiedStamp)
+
+	if !Verbose {
+		if (hdr.UnixMode & uint16(UnixFileSymlink)) != uint16(UnixFileSymlink) {
+			fmt.Printf(" %s", hdr.Name)
+		} else {
+			fmt.Printf(" %s -> %s", hdr.Name, hdr.Realname)
+		}
+	}
+	if Verbose {
+		fmt.Printf(" [%d]", hdr.HeaderLevel)
+	}
+	fmt.Printf("\n")
+
+}
+
+func printStamp(t int64) {
+	if VerboseListing && Verbose {
+		fmt.Printf("                   ") /* 19 spaces */
+	} else {
+		fmt.Printf("            ") /* 12 spaces */
+	}
+}
+
+func printSize(packedSize, originalSize int) {
+	if VerboseListing {
+		fmt.Printf("%7d ", packedSize)
+	}
+
+	fmt.Printf("%7d ", originalSize)
+	if originalSize == 0 {
+		fmt.Printf("******")
+	} else { /* Changed N.Watazaki */
+		fmt.Printf("%5.1f%%", packedSize*100.0/originalSize)
+	}
 }

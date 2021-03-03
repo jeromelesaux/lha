@@ -35,11 +35,11 @@ var (
 
 	cmd byte = lha.CmdUnknown
 
-	timestampArchive            bool
-	compressMethod              int
-	headerLevel                 int
-	quietMode                   int
-	verboseListing              bool
+	timestampArchive bool
+	compressMethod   int
+	headerLevel      int
+	quietMode        int
+
 	newArchive                  bool
 	updateIfNewer               bool
 	deleteAfterAppend           bool
@@ -62,8 +62,6 @@ func main() {
 	if *archiveNameOption == "" {
 		flag.PrintDefaults()
 		printVersion()
-	} else {
-		lha.ArchiveName = *archiveNameOption
 	}
 
 	parseOption()
@@ -73,13 +71,13 @@ func main() {
 
 	switch cmd {
 	case lha.CmdExtract:
-		globalError = lha.CommandExtract()
+		globalError = lha.CommandExtract(*archiveNameOption)
 	case lha.CmdAdd:
-		lha.CommandAdd()
+		lha.CommandAdd(*archiveNameOption)
 	case lha.CmdList:
-		lha.CommandList()
+		lha.CommandList(*archiveNameOption)
 	case lha.CmdDelete:
-		lha.CommadDelete()
+		lha.CommadDelete(*archiveNameOption)
 	default:
 		fmt.Fprintf(os.Stderr, "option unknown.")
 	}
@@ -143,7 +141,7 @@ func parseOption() {
 	}
 	if *listfileverbose {
 		cmd = lha.CmdList
-		verboseListing = true
+		lha.VerboseListing = true
 
 	}
 
@@ -214,7 +212,7 @@ func initVariable() { /* Added N.Watazaki */
 	quietMode = 0
 
 	/* view command flags */
-	verboseListing = false
+	lha.VerboseListing = false
 
 	/* extract command flags */
 	lha.OutputToStdout = false

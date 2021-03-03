@@ -27,7 +27,7 @@ func copyfile(f1 *io.Reader, f2 *io.Writer, size, text_flg int, crcp *uint) (int
 	var buf []byte = make([]byte, buffersize)
 	var rsize int = 0
 
-	if !textMode {
+	if !TextMode {
 		text_flg = 0
 	}
 	if *crcp != 0 {
@@ -67,15 +67,15 @@ func encodeStoredCrc(ifp *io.Reader, ofp *io.Writer, size int, original_size_var
 	var save_quiet bool
 	var crc uint
 
-	save_quiet = quiet
-	quiet = true
+	save_quiet = Quiet
+	Quiet = true
 	size, err := copyfile(ifp, ofp, size, 1, &crc)
 	if err != nil {
 		return 0, err
 	}
 	*original_size_var = size
 	*write_size_var = size
-	quiet = save_quiet
+	Quiet = save_quiet
 	return crc, nil
 }
 

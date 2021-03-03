@@ -11,9 +11,9 @@ package lha
 
 /* ------------------------------------------------------------------------ */
 var (
-	flag, flagcnt, matchpos int
-	loc                     uint16
-	extractDirectory        string
+	mFlag, flagcnt, matchpos int
+	loc                      uint16
+	ExtractDirectory         string
 )
 
 /* ------------------------------------------------------------------------ */
@@ -50,12 +50,12 @@ func decodeCLz5( /*void*/ ) uint16 {
 	if flagcnt == 0 {
 		flagcnt = 8
 		infile.Read(b)
-		flag = int(b[0])
+		mFlag = int(b[0])
 	}
 	flagcnt--
 	infile.Read(b)
 	c = int(b[0])
-	if (flag & 1) == 0 {
+	if (mFlag & 1) == 0 {
 		matchpos = c
 		infile.Read(b)
 		c = int(b[0])
@@ -63,7 +63,7 @@ func decodeCLz5( /*void*/ ) uint16 {
 		c &= 0x0f
 		c += 0x100
 	}
-	flag >>= 1
+	mFlag >>= 1
 	return uint16(c)
 }
 

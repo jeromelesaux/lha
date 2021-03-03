@@ -4,12 +4,12 @@ import "fmt"
 
 var (
 	reading_size int
-	quiet        bool
+	Quiet        bool
 )
 
 func startIndicator(name string, size int, msg []byte, def_indicator_threshold int) {
 
-	if quiet {
+	if Quiet {
 		return
 	}
 
@@ -19,7 +19,7 @@ func startIndicator(name string, size int, msg []byte, def_indicator_threshold i
 }
 
 func finishIndicator(name, msg string) {
-	if quiet {
+	if Quiet {
 		return
 	}
 	fmt.Printf("%s\n", msg)

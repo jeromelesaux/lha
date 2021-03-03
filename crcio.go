@@ -7,8 +7,8 @@ import (
 
 var (
 	getcEucCache int
-	textMode     bool
-	verifyMode   bool
+	TextMode     bool
+	VerifyMode   bool
 )
 
 const (
@@ -28,7 +28,7 @@ func calcCrc(crc uint, p *[]byte, pIndex, n uint) uint {
 	return crc
 }
 
-func makeCrcTable() {
+func MakeCrcTable() {
 	var i, j, r uint
 	for i = 0; i < ucharMax; i++ {
 		r = i
@@ -44,7 +44,7 @@ func makeCrcTable() {
 }
 
 func freadCrc(crcp *uint, p *[]byte, pindex uint, n int, fp io.Reader) (int, error) {
-	if textMode {
+	if TextMode {
 		n, err := freadTxt(p, pindex, n, fp)
 		if err != nil {
 			return n, err
@@ -96,7 +96,7 @@ func freadTxt(vp *[]byte, pindex uint, n int, fp io.Reader) (int, error) {
 func fwriteCrc(crcp *uint, p []byte, n int, fp *io.Writer) error {
 	*crcp = calcCrc(*crcp, &p, 0, uint(n))
 
-	if verifyMode {
+	if VerifyMode {
 		return nil
 	}
 	_, err := (*fp).Write(p)

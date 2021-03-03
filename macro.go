@@ -1,11 +1,11 @@
 package lha
 
 const (
-	packageName       = "LHa for UNIX"
-	packageVersion    = "1.0"
-	platForm          = "_____"
+	PackageName       = "LHa for UNIX"
+	PackageVersion    = "1.0"
+	PlatForm          = "_____"
 	methodTypeStorage = 5
-	filenameLength    = 1024
+	FilenameLength    = 1024
 
 	lzheaderStorage      = 4096
 	ucharMax             = (0x7F*2 + 1)
@@ -56,57 +56,57 @@ var (
 	/* ------------------------------------------------------------------------ */
 	/*  LHa File Definitions                                                    */
 	/* ------------------------------------------------------------------------ */
-	lzhuff0Method string = "-lh0-"
-	lzhuff1Method string = "-lh1-"
-	lzhuff2Method string = "-lh2-"
-	lzhuff3Method string = "-lh3-"
-	lzhuff4Method string = "-lh4-"
-	lzhuff5Method string = "-lh5-"
-	lzhuff6Method string = "-lh6-"
-	lzhuff7Method string = "-lh7-"
-	larcMethod    string = "-lzs-"
-	larc5Method   string = "-lz5-"
-	larc4Method   string = "-lz4-"
-	lzhdirsMethod string = "-lhd-"
-	pmarc0Method  string = "-pm0-"
-	pmarc2Method  string = "-pm2-"
+	Lzhuff0Method string = "-lh0-"
+	Lzhuff1Method string = "-lh1-"
+	Lzhuff2Method string = "-lh2-"
+	Lzhuff3Method string = "-lh3-"
+	Lzhuff4Method string = "-lh4-"
+	Lzhuff5Method string = "-lh5-"
+	Lzhuff6Method string = "-lh6-"
+	Lzhuff7Method string = "-lh7-"
+	LarcMethod    string = "-lzs-"
+	Larc5Method   string = "-lz5-"
+	Larc4Method   string = "-lz4-"
+	LzhdirsMethod string = "-lhd-"
+	Pmarc0Method  string = "-pm0-"
+	Pmarc2Method  string = "-pm2-"
 
 	/* Added N.Watazaki ..V */
-	lzhuff0MethodNum int = 0
-	lzhuff1MethodNum int = 1
-	lzhuff2MethodNum int = 2
-	lzhuff3MethodNum int = 3
-	lzhuff4MethodNum int = 4
-	lzhuff5MethodNum int = 5
-	lzhuff6MethodNum int = 6
-	lzhuff7MethodNum int = 7
-	larcMethodNum    int = 8
-	larc5MethodNum   int = 9
-	larc4MethodNum   int = 10
-	lzhdirsMethodNum int = 11
-	pmarc0MethodNum  int = 12
-	pmarc2MethodNum  int = 13
+	Lzhuff0MethodNum int = 0
+	Lzhuff1MethodNum int = 1
+	Lzhuff2MethodNum int = 2
+	Lzhuff3MethodNum int = 3
+	Lzhuff4MethodNum int = 4
+	Lzhuff5MethodNum int = 5
+	Lzhuff6MethodNum int = 6
+	Lzhuff7MethodNum int = 7
+	LarcMethodNum    int = 8
+	Larc5MethodNum   int = 9
+	Larc4MethodNum   int = 10
+	LzhdirsMethodNum int = 11
+	Pmarc0MethodNum  int = 12
+	Pmarc2MethodNum  int = 13
 
 	maxDicsiz int = (int(1) << maxDicbit)
 
-	extendGeneric byte = 0
-	extendUnix    byte = 'U'
-	extendMsdos   byte = 'M'
-	extendMacos   byte = 'm'
-	extendOs9     byte = '9'
-	extendOs2     byte = '2'
-	extendOs68k   byte = 'K'
-	extend0s386   byte = '3' /* OS-9000??? */
-	extendHuman   byte = 'H'
-	extendCpm     byte = 'C'
-	extendFlex    byte = 'F'
-	extendRunser  byte = 'R'
-	extendAmiga   byte = 'A'
+	ExtendGeneric byte = 0
+	ExtendUnix    byte = 'U'
+	ExtendMsdos   byte = 'M'
+	ExtendMacos   byte = 'm'
+	ExtendOs9     byte = '9'
+	ExtendOs2     byte = '2'
+	ExtendOs68k   byte = 'K'
+	Extend0s386   byte = '3' /* OS-9000??? */
+	ExtendHuman   byte = 'H'
+	ExtendCpm     byte = 'C'
+	ExtendFlex    byte = 'F'
+	ExtendRunser  byte = 'R'
+	ExtendAmiga   byte = 'A'
 	/* this OS type is not official */
 
-	extendTownsos byte = 'T'
-	extendXosk    byte = 'X' /* OS-9 for X68000 (?) */
-	extendJava    byte = 'J'
+	ExtendTownsos byte = 'T'
+	ExtendXosk    byte = 'X' /* OS-9 for X68000 (?) */
+	ExtendJava    byte = 'J'
 
 	/*---------------------------------------------------------------------------*/
 
@@ -132,23 +132,23 @@ var (
 	oskOwnerWritePerm int = 0000002
 	oskOwnerReadPerm  int = 0000001
 
-	unixFileTypemask   int = 0170000
-	unixFileRegular    int = 0100000
-	unixFileDirectory  int = 0040000
-	unixFileSymlink    int = 0120000
-	unixSetuid         int = 0004000
-	unixSetgid         int = 0002000
-	unixStickybit      int = 0001000
-	unixOwnerReadPerm  int = 0000400
-	unixOwnerWritePerm int = 0000200
-	unixOwnerExecPerm  int = 0000100
-	unixGroupReadPerm  int = 0000040
-	unixGroupWritePerm int = 0000020
-	unixGroupExecPerm  int = 0000010
-	unixOtherReadPerm  int = 0000004
-	unixOtherWritePerm int = 0000002
-	unixOtherExecPerm  int = 0000001
-	unixRwRwRw         int = 0000666
+	UnixFileTypemask   int = 0170000
+	UnixFileRegular    int = 0100000
+	UnixFileDirectory  int = 0040000
+	UnixFileSymlink    int = 0120000
+	UnixSetuid         int = 0004000
+	UnixSetgid         int = 0002000
+	UnixStickybit      int = 0001000
+	UnixOwnerReadPerm  int = 0000400
+	UnixOwnerWritePerm int = 0000200
+	UnixOwnerExecPerm  int = 0000100
+	UnixGroupReadPerm  int = 0000040
+	UnixGroupWritePerm int = 0000020
+	UnixGroupExecPerm  int = 0000010
+	UnixOtherReadPerm  int = 0000004
+	UnixOtherWritePerm int = 0000002
+	UnixOtherExecPerm  int = 0000001
+	UnixRwRwRw         int = 0000666
 
 	crcpoly uint16 = 0xa001 /* crc-16 (x^16+x^15+x^2+1) */
 
@@ -163,11 +163,11 @@ var (
 	magic5 byte = 19
 
 	/* lharc.c */
-	cmdUnknown byte = 0
-	cmdExtract byte = 1
-	cmdAdd     byte = 2
-	cmdList    byte = 3
-	cmdDelete  byte = 4
+	CmdUnknown byte = 0
+	CmdExtract byte = 1
+	CmdAdd     byte = 2
+	CmdList    byte = 3
+	CmdDelete  byte = 4
 
 	/* shuf.c */
 	n1        int = 286        /* alphabet size */

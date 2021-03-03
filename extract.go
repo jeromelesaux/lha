@@ -15,7 +15,7 @@ import (
 /*  Ver. 1.14   Source All chagned              1995.01.14  N.Watazaki      */
 /* ------------------------------------------------------------------------ */
 
-func decodeLzhuf(infp io.Reader, outfp io.Writer, original_size int, packed_size int, name string, method int, read_sizep *int) int {
+func DecodeLzhuf(infp io.Reader, outfp io.Writer, original_size int, packed_size int, name string, method int, read_sizep *int) int {
 	var (
 		crc   uint
 		inter interfacing
@@ -28,43 +28,43 @@ func decodeLzhuf(infp io.Reader, outfp io.Writer, original_size int, packed_size
 	inter.readSize = 0
 
 	switch method {
-	case lzhuff0MethodNum: /* -lh0- */
+	case Lzhuff0MethodNum: /* -lh0- */
 		inter.dicbit = lzhuff0Dicbit
 
-	case lzhuff1MethodNum: /* -lh1- */
+	case Lzhuff1MethodNum: /* -lh1- */
 		inter.dicbit = lzhuff1Dicbit
 
-	case lzhuff2MethodNum: /* -lh2- */
+	case Lzhuff2MethodNum: /* -lh2- */
 		inter.dicbit = lzhuff2Dicbit
 
-	case lzhuff3MethodNum: /* -lh2- */
+	case Lzhuff3MethodNum: /* -lh2- */
 		inter.dicbit = lzhuff3Dicbit
 
-	case lzhuff4MethodNum: /* -lh4- */
+	case Lzhuff4MethodNum: /* -lh4- */
 		inter.dicbit = lzhuff4Dicbit
 
-	case lzhuff5MethodNum: /* -lh5- */
+	case Lzhuff5MethodNum: /* -lh5- */
 		inter.dicbit = lzhuff5Dicbit
 
-	case lzhuff6MethodNum: /* -lh6- */
+	case Lzhuff6MethodNum: /* -lh6- */
 		inter.dicbit = lzhuff6Dicbit
 
-	case lzhuff7MethodNum: /* -lh7- */
+	case Lzhuff7MethodNum: /* -lh7- */
 		inter.dicbit = lzhuff7Dicbit
 
-	case larcMethodNum: /* -lzs- */
+	case LarcMethodNum: /* -lzs- */
 		inter.dicbit = larcDicbit
 
-	case larc5MethodNum: /* -lz5- */
+	case Larc5MethodNum: /* -lz5- */
 		inter.dicbit = larc5Dicbit
 
-	case larc4MethodNum: /* -lz4- */
+	case Larc4MethodNum: /* -lz4- */
 		inter.dicbit = larc4Dicbit
 
-	case pmarc0MethodNum: /* -pm0- */
+	case Pmarc0MethodNum: /* -pm0- */
 		inter.dicbit = pmarc0Dicbit
 
-	case pmarc2MethodNum: /* -pm2- */
+	case Pmarc2MethodNum: /* -pm2- */
 		inter.dicbit = pmarc2Dicbit
 
 	default:
@@ -74,23 +74,23 @@ func decodeLzhuf(infp io.Reader, outfp io.Writer, original_size int, packed_size
 
 	if inter.dicbit == 0 { /* LZHUFF0_DICBIT or LARC4_DICBIT or PMARC0_DICBIT*/
 		mode := "Melting "
-		if verifyMode {
+		if VerifyMode {
 			mode = "Testing "
 		}
 		startIndicator(name, original_size, []byte(mode), 2048)
 
-		if dumpLzss {
+		if DumpLzss {
 			fmt.Printf("no use slide\n")
 		}
 
 		*read_sizep, _ = copyfile(&infp, &outfp, original_size, 2, &crc)
 	} else {
 		mode := "Melting "
-		if verifyMode {
+		if VerifyMode {
 			mode = "Testing "
 		}
 		startIndicator(name, original_size, []byte(mode), 1<<inter.dicbit)
-		if dumpLzss {
+		if DumpLzss {
 			fmt.Printf("\n")
 		}
 
@@ -98,7 +98,7 @@ func decodeLzhuf(infp io.Reader, outfp io.Writer, original_size int, packed_size
 		*read_sizep = inter.readSize
 	}
 	mode := "Melted  "
-	if verifyMode {
+	if VerifyMode {
 		mode = "Tested  "
 	}
 	finishIndicator(name, mode)

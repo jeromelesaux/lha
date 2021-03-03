@@ -10,6 +10,36 @@ import (
 	"time"
 )
 
+var (
+	skipFlg                 bool = false /* FALSE..No Skip , TRUE..Skip */
+	dirinfo                      = &LzHeaderList{}
+	Noexec                  bool
+	Force                   bool
+	IgnoreDirectory         bool
+	OutputToStdout          bool
+	Verbose                 bool
+	DecodeMacbinaryContents bool
+	readingFilename         string
+	writingFilename         string
+	ArchiveName             string
+	CmdFilev                []string
+
+	methods = []string{Lzhuff0Method,
+		Lzhuff1Method,
+		Lzhuff2Method,
+		Lzhuff3Method,
+		Lzhuff4Method,
+		Lzhuff5Method,
+		Lzhuff6Method,
+		Lzhuff7Method,
+		LarcMethod,
+		Larc5Method,
+		Larc4Method,
+		LzhdirsMethod,
+		Pmarc0Method,
+		Pmarc2Method}
+)
+
 func isDirectoryTraversal(path string) bool {
 	var state int = 0
 
@@ -84,10 +114,10 @@ func inquireExtract(name string) (bool, error) {
 		return false, fmt.Errorf("\"%s\" already exists (not a file)", name)
 	}
 
-	if noexec {
-		return false, fmt.Errorf("EXTRACT %s but file is exist.\n", name)
+	if Noexec {
+		return false, fmt.Errorf("EXTRACT %s but file is exist", name)
 	} else {
-		if !force {
+		if !Force {
 
 			switch inquire("OverWrite ?(Yes/[No]/All/Skip)", name, "YyNnAaSs\n") {
 			case 0:
@@ -96,10 +126,10 @@ func inquireExtract(name string) (bool, error) {
 			case 2:
 			case 3: /* N/n */
 			case 8: /* Return */
-				return false, fmt.Errorf("skip no response.")
+				return false, fmt.Errorf("skip no response")
 			case 4:
 			case 5: /* A/a */
-				force = true
+				Force = true
 				break
 			case 6:
 			case 7: /* S/s */
@@ -109,7 +139,7 @@ func inquireExtract(name string) (bool, error) {
 		}
 	}
 
-	if noexec {
+	if Noexec {
 		fmt.Printf("EXTRACT %s\n", name)
 	}
 	return true, nil
@@ -124,25 +154,37 @@ func writeArchiveTail(nafp *io.Writer) {
 	(*nafp).Write([]byte{0x00})
 }
 
-func cmd_extract() error {
+func CommandAdd() error {
+	return nil
+}
+
+func CommandList() error {
+	return nil
+}
+
+func CommadDelete() error {
+	return nil
+}
+
+func CommandExtract() error {
 	var hdr LzHeader
 	var pos int
 	var afp io.Reader
 	//var read_size int
 
 	/* open archive file */
-	afp, err := os.Open(archiveName)
+	afp, err := os.Open(ArchiveName)
 	if err != nil {
-		return fmt.Errorf("Cannot open archive file \"%s\"", archiveName)
+		return fmt.Errorf("Cannot open archive file \"%s\"", ArchiveName)
 	}
 
-	if archiveIsMsdosSfx1([]byte(archiveName)) {
-		hdr.seekLhaHeader(&afp)
+	if archiveIsMsdosSfx1([]byte(ArchiveName)) {
+		hdr.SeekLhaHeader(&afp)
 	}
 
 	/* extract each files */
 	for {
-		err, hasHeader := hdr.getHeader(&afp)
+		err, hasHeader := hdr.GetHeader(&afp)
 		if err != nil {
 			return err
 		}
@@ -150,21 +192,21 @@ func cmd_extract() error {
 			return nil
 		}
 		pos = 0
-		if needFile(string(hdr.name[:])) {
-			read_size, err := extractOne(&afp, &hdr)
+		if needFile(string(hdr.Name[:])) {
+			readSize, err := extractOne(&afp, &hdr)
 			if err != nil {
 				return err
 			}
-			if read_size != hdr.packedSize {
+			if readSize != hdr.PackedSize {
 				/* when error occurred in extract_one(), should adjust
 				   point of file stream */
-				if err := skipToNextpos(&afp, pos, hdr.packedSize, read_size); err != nil {
-					return fmt.Errorf("Cannot seek to next header position from \"%s\"", hdr.name)
+				if err := skipToNextpos(&afp, pos, hdr.PackedSize, readSize); err != nil {
+					return fmt.Errorf("Cannot seek to next header position from \"%s\"", hdr.Name)
 				}
 			}
 		} else {
-			if err := skipToNextpos(&afp, pos, hdr.packedSize, 0); err == nil {
-				fmt.Errorf("Cannot seek to next header position from \"%s\"", hdr.name)
+			if err := skipToNextpos(&afp, pos, hdr.PackedSize, 0); err == nil {
+				fmt.Fprintf(os.Stdout, "Cannot seek to next header position from \"%s\"", hdr.Name)
 			}
 		}
 	}
@@ -181,20 +223,20 @@ func cmd_extract() error {
 func adjustInfo(name string, hdr *LzHeader) {
 
 	/* adjust file stamp */
-	utimebuf := time.Unix(hdr.unixLastModifiedStamp, 0)
+	utimebuf := time.Unix(hdr.UnixLastModifiedStamp, 0)
 
-	if (hdr.unixMode & uint16(unixFileTypemask)) != uint16(unixFileSymlink) {
+	if (hdr.UnixMode & uint16(UnixFileTypemask)) != uint16(UnixFileSymlink) {
 		os.Chtimes(name, utimebuf, utimebuf)
 	}
 
-	if hdr.extendType == extendUnix || hdr.extendType == extendOs68k || hdr.extendType == extendXosk {
+	if hdr.ExtendType == ExtendUnix || hdr.ExtendType == ExtendOs68k || hdr.ExtendType == ExtendXosk {
 
-		if (hdr.unixMode & uint16(unixFileTypemask)) != uint16(unixFileTypemask) {
-			os.Chmod(name, os.FileMode(hdr.unixMode))
+		if (hdr.UnixMode & uint16(UnixFileTypemask)) != uint16(UnixFileTypemask) {
+			os.Chmod(name, os.FileMode(hdr.UnixMode))
 		}
 
-		uid := hdr.unixUID
-		gid := hdr.unixGid
+		uid := hdr.UnixUID
+		gid := hdr.UnixGid
 
 		os.Chown(name, int(uid), int(gid))
 
@@ -204,13 +246,13 @@ func adjustInfo(name string, hdr *LzHeader) {
 
 func adjustDirinfo() {
 	for dirinfo != nil {
-		/* message("adjusting [%s]", dirinfo->hdr.name); */
-		adjustInfo(string((*dirinfo).hdr.name[:]), (*dirinfo).hdr)
-		dirinfo = dirinfo.next
+		/* message("adjusting [%s]", dirinfo->hdr.Name); */
+		adjustInfo(string((*dirinfo).Hdr.Name[:]), (*dirinfo).Hdr)
+		dirinfo = dirinfo.Next
 	}
 }
 
-func skipToNextpos(fp *io.Reader, pos, off, read_size int) error {
+func skipToNextpos(fp *io.Reader, pos, off, readSize int) error {
 	if pos != -1 {
 		b := make([]byte, pos+off)
 		_, err := (*fp).Read(b)
@@ -218,7 +260,7 @@ func skipToNextpos(fp *io.Reader, pos, off, read_size int) error {
 			return err
 		}
 	} else {
-		b := make([]byte, off-read_size)
+		b := make([]byte, off-readSize)
 		_, err := (*fp).Read(b)
 		if err != nil {
 			return err
@@ -230,8 +272,8 @@ func skipToNextpos(fp *io.Reader, pos, off, read_size int) error {
 func makeNameWithPathcheck(name string, namesz int, q string) (bool, error) {
 
 	var offset int
-	if len(extractDirectory) > 0 {
-		name = fmt.Sprint("%s/", extractDirectory)
+	if len(ExtractDirectory) > 0 {
+		name = fmt.Sprint("%s/", ExtractDirectory)
 		offset += len(name)
 	}
 	var p int
@@ -283,83 +325,83 @@ func addDirinfo(name string, hdr *LzHeader) {
 	var p, tmp, top *LzHeaderList
 
 	(*p) = LzHeaderList{}
-	if string((*hdr).method[:]) != lzhdirsMethod {
+	if string((*hdr).Method[:]) != LzhdirsMethod {
 		return
 	}
-	(*p).hdr = &LzHeader{}
-	(*p).hdr.name = (*hdr).name
-	top.next = dirinfo
-	for tmp = top; tmp.next != nil; tmp = tmp.next {
-		if (*p).hdr.name == (*tmp).next.hdr.name {
-			(*p).next = (*tmp).next
-			(*tmp).next = p
+	(*p).Hdr = &LzHeader{}
+	(*p).Hdr.Name = (*hdr).Name
+	top.Next = dirinfo
+	for tmp = top; tmp.Next != nil; tmp = tmp.Next {
+		if (*p).Hdr.Name == (*tmp).Next.Hdr.Name {
+			(*p).Next = (*tmp).Next
+			(*tmp).Next = p
 			break
 		}
 	}
 
-	if (*tmp).next == nil {
-		(*p).next = nil
-		(*tmp).next = p
+	if (*tmp).Next == nil {
+		(*p).Next = nil
+		(*tmp).Next = p
 	}
-	dirinfo = (*top).next
+	dirinfo = (*top).Next
 }
 
 func symlinkWithMakePath(realname string, name string) int {
-	var l_code int
+	var lCode int
 
 	err := os.Symlink(realname, name)
 	if err != nil {
 		makeParentPath(name)
 		err = os.Symlink(realname, name)
 		if err != nil {
-			l_code = 1
+			lCode = 1
 		}
 	}
 
-	return l_code
+	return lCode
 }
 
 func extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 	var fp io.Writer
-	var name [filenameLength]byte
+	var name [FilenameLength]byte
 	var crc uint
 	var method int
-	var save_quiet, save_verbose, upFlag bool
-	var q = hdr.name
+	var saveQuiet, saveVerbose, upFlag bool
+	var q = hdr.Name
 	var c byte
 	var readSize int
 
-	p := strings.Index(string(hdr.name[:]), "/")
-	if ignoreDirectory && p != 1 {
+	p := strings.Index(string(hdr.Name[:]), "/")
+	if IgnoreDirectory && p != 1 {
 		p++
 	} else {
-		if !isDirectoryTraversal(string(hdr.name[p:])) {
-			return 0, fmt.Errorf("Possible directory traversal hack attempt in %s", hdr.name[p:])
+		if !isDirectoryTraversal(string(hdr.Name[p:])) {
+			return 0, fmt.Errorf("Possible directory traversal hack attempt in %s", hdr.Name[p:])
 		}
 
-		if hdr.name[p] == '/' {
-			for hdr.name[p] == '/' {
+		if hdr.Name[p] == '/' {
+			for hdr.Name[p] == '/' {
 				p++
 			}
 
 			/*
 			 * if OSK then strip device name
 			 */
-			if hdr.extendType == extendOs68k || hdr.extendType == extendXosk {
+			if hdr.ExtendType == ExtendOs68k || hdr.ExtendType == ExtendXosk {
 				for {
-					c = hdr.name[p]
+					c = hdr.Name[p]
 					p++
-					if p >= len(hdr.name) || c == '/' {
+					if p >= len(hdr.Name) || c == '/' {
 						break
 					}
 				}
-				if c != 0 || hdr.name[p] != 0 {
-					hdr.name[p] = '.' /* if device name only */
+				if c != 0 || hdr.Name[p] != 0 {
+					hdr.Name[p] = '.' /* if device name only */
 				}
 			}
 		}
 	}
-	ok, err := makeNameWithPathcheck(string(name[:]), len(name), string(hdr.name[p:]))
+	ok, err := makeNameWithPathcheck(string(name[:]), len(name), string(hdr.Name[p:]))
 	if err != nil || !ok {
 		return 0, fmt.Errorf("Possible symlink traversal hack attempt in %s", q)
 	}
@@ -368,58 +410,58 @@ func extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 	/* 1999.4.30 t.okamoto */
 	for method = 0; ; method++ {
 		if method >= len(methods) {
-			return readSize, fmt.Errorf("Unknown method \"%.*s\"; \"%s\" will be skipped ...", 5, hdr.method, name)
+			return readSize, fmt.Errorf("Unknown method \"%.*s\"; \"%s\" will be skipped", 5, hdr.Method, name)
 		}
-		if string(hdr.method[:]) == methods[method] {
+		if string(hdr.Method[:]) == methods[method] {
 			break
 		}
 	}
 
-	if (hdr.unixMode&uint16(unixFileTypemask)) == uint16(unixFileRegular) && method != lzhdirsMethodNum {
+	if (hdr.UnixMode&uint16(UnixFileTypemask)) == uint16(UnixFileRegular) && method != LzhdirsMethodNum {
 		//	extractRegular:
-		readingFilename = archiveName
+		readingFilename = ArchiveName
 		writingFilename = string(name[:])
-		if outputToStdout || verifyMode {
+		if OutputToStdout || VerifyMode {
 			/* "Icon\r" should be a resource fork file encoded in MacBinary
 			   format, so that it should be skipped. */
-			if hdr.extendType == extendMacos && decodeMacbinaryContents && filepath.Base(string(name[:])) == "Icon\r" {
+			if hdr.ExtendType == ExtendMacos && DecodeMacbinaryContents && filepath.Base(string(name[:])) == "Icon\r" {
 				return readSize, nil
 			}
 
-			if noexec {
+			if Noexec {
 				v := "EXTRACT"
-				if verifyMode {
+				if VerifyMode {
 					v = "VERIFY"
 				}
 				fmt.Printf("%s %s\n", v, name)
 				return readSize, nil
 			}
 
-			save_quiet = quiet
-			save_verbose = verbose
-			if !quiet && outputToStdout {
+			saveQuiet = Quiet
+			saveVerbose = Verbose
+			if !Quiet && OutputToStdout {
 				fmt.Fprintf(os.Stdout, "::::::::\n%s\n::::::::\n", string(name[:]))
-				quiet = true
-				verbose = false
+				Quiet = true
+				Verbose = false
 			} else {
-				if verifyMode {
-					quiet = false
-					verbose = true
+				if VerifyMode {
+					Quiet = false
+					Verbose = true
 				}
 			}
-			crc = uint(decodeLzhuf(*afp,
+			crc = uint(DecodeLzhuf(*afp,
 				os.Stdout,
-				hdr.originalSize,
-				hdr.packedSize,
+				hdr.OriginalSize,
+				hdr.PackedSize,
 				string(name[:]),
 				method,
 				&readSize))
-			quiet = save_quiet
-			verbose = save_verbose
+			Quiet = saveQuiet
+			Verbose = saveVerbose
 		} else {
 			if skipFlg == false {
 				upFlag, _ = inquireExtract(string(name[:]))
-				if upFlag == false && force == false {
+				if upFlag == false && Force == false {
 					return readSize, nil
 				}
 			}
@@ -429,69 +471,74 @@ func extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				if force != true {
-					if quiet != true {
+				if Force != true {
+					if Quiet != true {
 						fmt.Fprintf(os.Stderr, "%s : Skipped...\n", string(name[:]))
 					}
 					return readSize, nil
 				}
 			}
-			if noexec {
+			if Noexec {
 				return readSize, nil
 			}
 			var err error
 			fp, err = openWithMakePath(string(name[:]))
 			if err == nil {
-				crc = uint(decodeLzhuf(*afp, fp,
-					hdr.originalSize, hdr.packedSize,
-					string(name[:]), method, &readSize))
+				crc = uint(DecodeLzhuf(
+					*afp,
+					fp,
+					hdr.OriginalSize,
+					hdr.PackedSize,
+					string(name[:]),
+					method,
+					&readSize))
 				fp.(*os.File).Close()
 			}
 
 			return readSize, nil
 		}
 
-		if hdr.hasCrc && crc != hdr.crc {
+		if hdr.HasCrc && crc != hdr.Crc {
 			return 0, fmt.Errorf("CRC error: \"%s\"", name)
 		}
 	} else {
-		if (hdr.unixMode&uint16(unixFileTypemask)) == uint16(unixFileDirectory) || (hdr.unixMode&uint16(unixFileTypemask)) == uint16(unixFileSymlink) || method == lzhdirsMethodNum {
+		if (hdr.UnixMode&uint16(UnixFileTypemask)) == uint16(UnixFileDirectory) || (hdr.UnixMode&uint16(UnixFileTypemask)) == uint16(UnixFileSymlink) || method == LzhdirsMethodNum {
 			/* ↑これで、Symbolic Link は、大丈夫か？ */
-			if !ignoreDirectory && !verifyMode && !outputToStdout {
-				if noexec {
-					if quiet != true {
+			if !IgnoreDirectory && !VerifyMode && !OutputToStdout {
+				if Noexec {
+					if Quiet != true {
 						fmt.Fprintf(os.Stderr, "EXTRACT %s (directory)\n", string(name[:]))
 					}
 					return readSize, nil
 				}
 				/* NAME has trailing SLASH '/', (^_^) */
-				if (hdr.unixMode & uint16(unixFileTypemask)) == uint16(unixFileSymlink) {
+				if (hdr.UnixMode & uint16(UnixFileTypemask)) == uint16(UnixFileSymlink) {
 					var lcode int
 					if skipFlg == false {
 						upFlag, _ = inquireExtract(string(name[:]))
-						if upFlag == false && force == false {
+						if upFlag == false && Force == false {
 							return readSize, nil
 						}
 					}
 
 					if skipFlg == true {
 						_, err := os.Lstat(string(name[:]))
-						if err == nil && force != true {
-							if quiet != true {
+						if err == nil && Force != true {
+							if Quiet != true {
 								fmt.Fprintf(os.Stderr, "%s : Skipped...\n", string(name[:]))
 							}
 							return readSize, nil
 						}
 					}
 
-					lcode = symlinkWithMakePath(string(hdr.realname[:]), string(name[:]))
+					lcode = symlinkWithMakePath(string(hdr.Realname[:]), string(name[:]))
 					if lcode < 0 {
-						if quiet != true {
-							fmt.Fprintf(os.Stderr, "Can't make Symbolic Link \"%s\" -> \"%s\"", name, hdr.realname)
+						if Quiet != true {
+							fmt.Fprintf(os.Stderr, "Can't make Symbolic Link \"%s\" -> \"%s\"", name, hdr.Realname)
 						}
 					}
-					if quiet != true {
-						fmt.Printf("Symbolic Link %s -> %s", name, hdr.realname)
+					if Quiet != true {
+						fmt.Printf("Symbolic Link %s -> %s", name, hdr.Realname)
 					}
 				} else { /* make directory */
 					ok, err := makeParentPath(string(name[:]))
@@ -503,16 +550,16 @@ func extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 				}
 			}
 		} else {
-			if force { /* force extract */
+			if Force { /* force extract */
 				//goto extractRegular
 			} else {
-				return 0, fmt.Errorf("Unknown file type: \"%s\". use `f' option to force extract.", name)
+				return 0, fmt.Errorf("Unknown file type: \"%s\". use `f' option to force extract", name)
 			}
 		}
 	}
 
-	if !outputToStdout && !verifyMode {
-		if (hdr.unixMode & uint16(unixFileTypemask)) != uint16(unixFileDirectory) {
+	if !OutputToStdout && !VerifyMode {
+		if (hdr.UnixMode & uint16(UnixFileTypemask)) != uint16(UnixFileDirectory) {
 			adjustInfo(string(name[:]), hdr)
 		}
 	}
@@ -522,8 +569,8 @@ func extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 }
 
 func needFile(name string) bool {
-	for i := 0; i < len(cmdFilev); i++ {
-		if cmdFilev[i] == name {
+	for i := 0; i < len(CmdFilev); i++ {
+		if CmdFilev[i] == name {
 			return true
 		}
 	}

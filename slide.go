@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	extractBrokenArchive, dumpLzss bool
+	ExtractBrokenArchive, DumpLzss bool
 	dicsiz                         int
 )
 
@@ -105,7 +105,7 @@ func decode(inter *interfacing) uint {
 	dicsiz = int(1) << dicbit
 	dtext = make([]byte, dicsiz)
 
-	if !extractBrokenArchive {
+	if !ExtractBrokenArchive {
 		for i := 0; i < len(dtext); i++ {
 			dtext[i] = ' '
 		}
@@ -123,7 +123,7 @@ func decode(inter *interfacing) uint {
 	decodeMethodStart(inter.method)
 	dicsiz1 = uint(dicsiz) - 1
 	adjust = 256 - uint(threshold)
-	if (inter.method == larcMethodNum) || (inter.method == pmarc2MethodNum) {
+	if (inter.method == LarcMethodNum) || (inter.method == Pmarc2MethodNum) {
 		adjust = 256 - 2
 	}
 	decodeCount = 0
@@ -131,7 +131,7 @@ func decode(inter *interfacing) uint {
 	for decodeCount < origsize {
 		c = uint(decodeMethodC(inter.method))
 		if c < 256 {
-			if dumpLzss {
+			if DumpLzss {
 				b := c
 				if !strconv.IsPrint(rune(c)) {
 					b = '?'
@@ -153,7 +153,7 @@ func decode(inter *interfacing) uint {
 			match.len = int(c - adjust)
 			match.off = uint(decodeMethodP(inter.method)) + 1
 			matchpos = (uint(loc) - match.off) & dicsiz1
-			if dumpLzss {
+			if DumpLzss {
 				fmt.Printf("%d <%u %d>\n",
 					decodeCount, match.len, decodeCount-int(match.off))
 			}

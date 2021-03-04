@@ -3,24 +3,23 @@ package lha
 import (
 	"fmt"
 	"os"
-	"unsafe"
 )
 
 var (
-	left   [2*Nc - 1]uint16
-	right  [2*Nc - 1]uint16
-	cCode  [Nc]uint16  /* encode */
-	ptCode [Npt]uint16 /* encode */
+	left   = make([]uint16, 2*Nc-1)
+	right  = make([]uint16, 2*Nc-1)
+	cCode  = make([]uint16, Nc)  /* encode */
+	ptCode = make([]uint16, Npt) /* encode */
 
-	cTable  [4096]uint16 /* decode */
-	ptTable [256]uint16  /* decode */
+	cTable  = make([]uint16, 4096) /* decode */
+	ptTable = make([]uint16, 256)  /* decode */
 
-	cFreq [2*Nc - 1]uint16 /* encode */
-	pFreq [2*Np - 1]uint16 /* encode */
-	tFreq [2*Nt - 1]uint16 /* encode */
+	cFreq = make([]uint16, 2*Nc-1) /* encode */
+	pFreq = make([]uint16, 2*Np-1) /* encode */
+	tFreq = make([]uint16, 2*Nt-1) /* encode */
 
-	cLen  [Nc]byte
-	ptLen [Npt]byte
+	cLen  = make([]byte, Nc)
+	ptLen = make([]byte, Npt)
 	buf   []byte
 
 	outputPos  uint16
@@ -170,12 +169,12 @@ func sendBlock( /* void */ ) {
 	var flags byte
 	var i, k, root, pos, size uint16
 
-	root = uint16(makeTree(int(Nc), (*[]uint16)(unsafe.Pointer(&cFreq)), (*[]byte)(unsafe.Pointer(&cLen)), (*[]uint16)(unsafe.Pointer(&cCode))))
+	root = uint16(makeTree(int(Nc), &cFreq, &cLen, &cCode))
 	size = cFreq[root]
 	putbits(16, size)
 	if root >= Nc {
 		countTFreq()
-		root = uint16(makeTree(int(Nt), (*[]uint16)(unsafe.Pointer(&tFreq)), (*[]byte)(unsafe.Pointer(&ptLen)), (*[]uint16)(unsafe.Pointer(&ptCode))))
+		root = uint16(makeTree(int(Nt), &tFreq, &ptLen, &ptCode))
 		if root >= Nt {
 			writePtLen(int16(Nt), int16(tbit), 3)
 		} else {
@@ -189,7 +188,7 @@ func sendBlock( /* void */ ) {
 		putbits(cbit, 0)
 		putbits(cbit, root)
 	}
-	root = uint16(makeTree(int(np), (*[]uint16)(unsafe.Pointer(&pFreq)), (*[]byte)(unsafe.Pointer(&ptLen)), (*[]uint16)(unsafe.Pointer(&ptCode))))
+	root = uint16(makeTree(int(np), &pFreq, &ptLen, &ptCode))
 	if root >= uint16(np) {
 		writePtLen(int16(np), int16(pbit), -1)
 	} else {
@@ -334,8 +333,8 @@ func min16(a, b int16) int16 {
 	return a
 }
 
-func peekbits(n int) int {
-	return int(bitbuf)>>(2)*8 - (n)
+func peekbits(n int) uint16 {
+	return bitbuf >> (16 - uint16(n))
 }
 
 /* ------------------------------------------------------------------------ */
@@ -357,7 +356,7 @@ func readPtLen(nn, nbit, i_special int16) {
 	} else {
 		i = 0
 		for i < min(n, int(Npt)) {
-			c = peekbits(3)
+			c = int(peekbits(3))
 			if c != 7 {
 				fillbuf(3)
 			} else {
@@ -385,7 +384,7 @@ func readPtLen(nn, nbit, i_special int16) {
 			ptLen[i] = 0
 			i++
 		}
-		makeTable(nn, (*[]byte)(unsafe.Pointer(&ptLen)), 8, (*[]uint16)(unsafe.Pointer(&ptTable)))
+		makeTable(nn, &ptLen, 8, &ptTable)
 	}
 }
 
@@ -443,7 +442,7 @@ func readCLen( /* void */ ) {
 			cLen[i] = 0
 			i++
 		}
-		makeTable(int16(Nc), (*[]byte)(unsafe.Pointer(&cLen)), 12, (*[]uint16)(unsafe.Pointer(&cTable)))
+		makeTable(int16(Nc), &cLen, 12, &cTable)
 	}
 }
 

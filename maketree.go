@@ -1,7 +1,5 @@
 package lha
 
-import "unsafe"
-
 func makeCode(nchar int, bitlen *[]byte, code *[]uint16, leafNum *[]uint16) {
 	var (
 		weight [17]uint16 /* 0x10000ul >> bitlen */
@@ -97,7 +95,7 @@ func makeTree(nchar int, freq *[]uint16, bitlen *[]byte, code *[]uint16) int16 {
 	var (
 		i, j, avail, root int16
 		sortIndex         int
-		heap              [Nc + 1]int16 /* NC >= nchar */
+		heap              = make([]int16, Nc+1) /* NC >= nchar */
 		heapsize          int
 	)
 
@@ -118,7 +116,7 @@ func makeTree(nchar int, freq *[]uint16, bitlen *[]byte, code *[]uint16) int16 {
 
 	/* make priority queue */
 	for i = int16(heapsize) / 2; i >= 1; i-- {
-		downheap(int(i), (*[]int16)(unsafe.Pointer(&heap)), heapsize, freq)
+		downheap(int(i), &heap, heapsize, freq)
 	}
 
 	/* make huffman tree */
@@ -132,7 +130,7 @@ func makeTree(nchar int, freq *[]uint16, bitlen *[]byte, code *[]uint16) int16 {
 		}
 		heap[1] = heap[heapsize]
 		heapsize--
-		downheap(1, (*[]int16)(unsafe.Pointer(&heap)), heapsize, freq)
+		downheap(1, &heap, heapsize, freq)
 		j = heap[1] /* next least-freq entry */
 		if j < int16(nchar) {
 			(*code)[sortIndex] = uint16(j)
@@ -143,7 +141,7 @@ func makeTree(nchar int, freq *[]uint16, bitlen *[]byte, code *[]uint16) int16 {
 		avail++
 		(*freq)[root] = (*freq)[i] + (*freq)[j]
 		heap[1] = root
-		downheap(1, (*[]int16)(unsafe.Pointer(&heap)), heapsize, freq) /* put into queue */
+		downheap(1, &heap, heapsize, freq) /* put into queue */
 		left[root] = uint16(i)
 		right[root] = uint16(j)
 		if heapsize <= 1 {
@@ -152,17 +150,17 @@ func makeTree(nchar int, freq *[]uint16, bitlen *[]byte, code *[]uint16) int16 {
 	}
 
 	{
-		var leaf_num [17]uint16
+		var leaf_num = make([]uint16, 17)
 
 		/* make leaf_num */
 
 		countLeaf(int(root), nchar, leaf_num[:], 0)
 
 		/* make bitlen */
-		makeLen(nchar, bitlen, code, (*[]uint16)(unsafe.Pointer(&leaf_num)))
+		makeLen(nchar, bitlen, code, &leaf_num)
 
 		/* make code table */
-		makeCode(nchar, bitlen, code, (*[]uint16)(unsafe.Pointer(&leaf_num)))
+		makeCode(nchar, bitlen, code, &leaf_num)
 	}
 
 	return root

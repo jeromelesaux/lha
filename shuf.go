@@ -1,7 +1,5 @@
 package lha
 
-import "unsafe"
-
 const (
 	Np_      = (8 * 1024 / 64)
 	Np2_     = (Np_*2 - 1)
@@ -95,7 +93,7 @@ func readTreeC( /*void*/ ) { /* read tree from file */
 			return
 		}
 	}
-	makeTable(int16(n1), (*[]byte)(unsafe.Pointer(&cLen)), 12, (*[]uint16)(unsafe.Pointer(&cTable)))
+	makeTable(int16(n1), &cLen, 12, &cTable)
 }
 
 /* ------------------------------------------------------------------------ */
@@ -129,7 +127,7 @@ func decodeStartFix( /*void*/ ) {
 	np = 1 << (lzhuff1Dicbit - 6)
 	startCDyn()
 	readyMade(0)
-	makeTable(int16(np), (*[]byte)(unsafe.Pointer(&ptLen)), 8, (*[]uint16)(unsafe.Pointer(&ptTable)))
+	makeTable(int16(np), &ptLen, 8, &ptTable)
 }
 
 /* ------------------------------------------------------------------------ */
@@ -148,7 +146,7 @@ func decodeCSt0( /*void*/ ) uint16 {
 		} else {
 			readyMade(1)
 		}
-		makeTable(int16(Np), (*[]byte)(unsafe.Pointer(&ptLen)), 8, (*[]uint16)(unsafe.Pointer(&ptTable)))
+		makeTable(int16(Np), &ptLen, 8, &ptTable)
 	}
 	blocksize--
 	j = int(cTable[peekbits(12)])

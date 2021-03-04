@@ -56,7 +56,9 @@ func getbits(n byte) uint16 {
 
 	x = bitbuf >> (2*charBit - n)
 	err := fillbuf(n)
-	fmt.Fprintf(os.Stderr, "fillbuf error :%v\n", err.Error())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "fillbuf error :%v\n", err.Error())
+	}
 	return x
 }
 

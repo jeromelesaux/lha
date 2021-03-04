@@ -24,8 +24,11 @@ func decodeMethodStart(method int) {
 	case 2: /* lh3 */
 		decodeStartSt0()
 	case 3: /* lh4 */
+		decodeStartSt1()
 	case 4: /* lh5 */
+		decodeStartSt1()
 	case 5: /* lh6 */
+		decodeStartSt1()
 	case 6: /* lh7 */
 		decodeStartSt1()
 	case 7: /* lzs */
@@ -48,8 +51,11 @@ func decodeMethodP(method int) uint16 {
 	case 2: /* lh3 */
 		return decodePSt0()
 	case 3: /* lh4 */
+		return decodePSt1()
 	case 4: /* lh5 */
+		return decodePSt1()
 	case 5: /* lh6 */
+		return decodePSt1()
 	case 6: /* lh7 */
 		return decodePSt1()
 	case 7: /* lzs */
@@ -67,13 +73,17 @@ func decodeMethodP(method int) uint16 {
 func decodeMethodC(method int) uint16 {
 	switch method - 1 {
 	case 0: /* lh1 */
+		return decodeCDyn()
 	case 1: /* lh2 */
 		return decodeCDyn()
 	case 2: /* lh3 */
 		return decodeCSt0()
 	case 3: /* lh4 */
+		return decodeCSt1()
 	case 4: /* lh5 */
+		return decodeCSt1()
 	case 5: /* lh6 */
+		return decodeCSt1()
 	case 6: /* lh7 */
 		return decodeCSt1()
 	case 7: /* lzs */
@@ -154,7 +164,7 @@ func decode(inter *interfacing) uint {
 			match.off = uint(decodeMethodP(inter.method)) + 1
 			matchpos = (uint(loc) - match.off) & dicsiz1
 			if DumpLzss {
-				fmt.Printf("%d <%u %d>\n",
+				fmt.Printf("%d <%d %d>\n",
 					decodeCount, match.len, decodeCount-int(match.off))
 			}
 

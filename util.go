@@ -3,6 +3,7 @@ package lha
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 )
 
@@ -84,14 +85,15 @@ func archiveIsMsdosSfx1(name []byte) bool {
 	length := len(name)
 
 	if length >= 4 {
-		extension := strings.ToUpper(string(name[length : len(name)-4]))
+		extension := strings.ToUpper(filepath.Ext(string(name)))
+
 		if extension == ".COM" || extension == ".EXE" {
 			return true
 		}
 	}
 
 	if length >= 2 {
-		extension := strings.ToUpper(string(name[length : len(name)-2]))
+		extension := strings.ToUpper(filepath.Ext(string(name)))
 		if extension == ".x" {
 			return true
 		}

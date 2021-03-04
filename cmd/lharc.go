@@ -75,7 +75,7 @@ func main() {
 	case lha.CmdAdd:
 		lha.CommandAdd(*archiveNameOption) // to implement
 	case lha.CmdList:
-		lha.CommandList(*archiveNameOption) // to be tested
+		globalError = lha.CommandList(*archiveNameOption) // to be tested
 	case lha.CmdDelete:
 		lha.CommadDelete(*archiveNameOption) // to implemennt
 	default:
@@ -84,6 +84,7 @@ func main() {
 	}
 
 	if globalError != nil {
+		fmt.Fprintf(os.Stderr, "Execution error :%v\n", globalError.Error())
 		os.Exit(1)
 	}
 	os.Exit(0)

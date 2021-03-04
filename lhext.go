@@ -102,12 +102,12 @@ func inquire(msg string, name string, selective string) int {
 func inquireExtract(name string) (bool, error) {
 
 	skipFlg = false
-	f, err := os.Open(name)
-	if err != nil {
-		return false, err
+
+	stbuf, err := os.Lstat(name)
+
+	if os.IsNotExist(err) {
+		return true, nil
 	}
-	defer f.Close()
-	stbuf, err := f.Stat()
 	if err != nil {
 		return false, err
 	}
@@ -124,7 +124,7 @@ func inquireExtract(name string) (bool, error) {
 			switch inquire("OverWrite ?(Yes/[No]/All/Skip)", name, "YyNnAaSs\n") {
 			case 0:
 			case 1: /* Y/y */
-				break
+
 			case 2:
 			case 3: /* N/n */
 			case 8: /* Return */
@@ -132,11 +132,11 @@ func inquireExtract(name string) (bool, error) {
 			case 4:
 			case 5: /* A/a */
 				Force = true
-				break
+
 			case 6:
 			case 7: /* S/s */
 				skipFlg = true
-				break
+
 			}
 		}
 	}
@@ -276,9 +276,9 @@ func CommadDelete(archiveFilepath string) error {
 }
 
 func CommandExtract(archiveFilepath string) error {
-	var hdr LzHeader
+	hdr := NewLzHeader()
 	var pos int
-	var afp *io.Reader
+	var afp io.Reader
 	//var read_size int
 
 	archiveName = archiveFilepath
@@ -288,15 +288,18 @@ func CommandExtract(archiveFilepath string) error {
 	if err != nil {
 		return fmt.Errorf("Cannot open archive file \"%s\"", archiveName)
 	}
-	*afp = f
+	afp = f
 
 	if archiveIsMsdosSfx1([]byte(archiveName)) {
-		hdr.SeekLhaHeader(afp)
+		hdr.SeekLhaHeader(&afp)
 	}
 
 	/* extract each files */
 	for {
-		err, hasHeader := hdr.GetHeader(afp)
+		err, hasHeader := hdr.GetHeader(&afp)
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
 			return err
 		}
@@ -305,19 +308,19 @@ func CommandExtract(archiveFilepath string) error {
 		}
 		pos = 0
 		if needFile(string(hdr.Name[:])) {
-			readSize, err := extractOne(afp, &hdr)
+			readSize, err := extractOne(&afp, hdr)
 			if err != nil {
 				return err
 			}
 			if readSize != hdr.PackedSize {
 				/* when error occurred in extract_one(), should adjust
 				   point of file stream */
-				if err := skipToNextpos(afp, pos, hdr.PackedSize, readSize); err != nil {
+				if err := skipToNextpos(&afp, pos, hdr.PackedSize, readSize); err != nil {
 					return fmt.Errorf("Cannot seek to next header position from \"%s\"", hdr.Name)
 				}
 			}
 		} else {
-			if err := skipToNextpos(afp, pos, hdr.PackedSize, 0); err == nil {
+			if err := skipToNextpos(&afp, pos, hdr.PackedSize, 0); err == nil {
 				fmt.Fprintf(os.Stdout, "Cannot seek to next header position from \"%s\"", hdr.Name)
 			}
 		}
@@ -357,7 +360,7 @@ func adjustInfo(name string, hdr *LzHeader) {
 }
 
 func adjustDirinfo() {
-	for dirinfo != nil {
+	for dirinfo != nil && dirinfo.Hdr != nil {
 		/* message("adjusting [%s]", dirinfo->hdr.Name); */
 		adjustInfo(string((*dirinfo).Hdr.Name[:]), (*dirinfo).Hdr)
 		dirinfo = dirinfo.Next
@@ -381,7 +384,7 @@ func skipToNextpos(fp *io.Reader, pos, off, readSize int) error {
 	return nil
 }
 
-func makeNameWithPathcheck(name string, namesz int, q string) (bool, error) {
+func makeNameWithPathcheck(name string, namesz int, q string) (bool, []byte, error) {
 
 	var offset int
 	if len(ExtractDirectory) > 0 {
@@ -396,17 +399,21 @@ func makeNameWithPathcheck(name string, namesz int, q string) (bool, error) {
 
 		_, err := os.Lstat(name)
 		if err != nil {
-			return false, err
+			return false, []byte(name), err
 		}
 		_, err = filepath.EvalSymlinks(name)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "this not a symlink [%s] : %v\n ", name, err)
-			return false, nil
+			return false, []byte(name), nil
 		}
 		p = strings.Index(q[p:], "/")
 	}
-
-	return true, nil
+	last := namesz - offset
+	if offset == 0 {
+		last = len(q) - 1
+	}
+	name = string(q[offset:last])
+	return true, []byte(name), nil
 }
 
 func makeParentPath(name string) (bool, error) {
@@ -475,7 +482,7 @@ func symlinkWithMakePath(realname string, name string) int {
 
 func extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 	var fp io.Writer
-	var name [FilenameLength]byte
+	name := make([]byte, FilenameLength)
 	var crc uint
 	var method int
 	var saveQuiet, saveVerbose, upFlag bool
@@ -483,11 +490,15 @@ func extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 	var c byte
 	var readSize int
 
-	p := strings.Index(string(hdr.Name[:]), "/")
-	if IgnoreDirectory && p != 1 {
+	p := strings.LastIndex(string(hdr.Name[:]), "/")
+	if p == -1 {
+		p = 0
+	}
+	if IgnoreDirectory {
 		p++
 	} else {
-		if !isDirectoryTraversal(string(hdr.Name[p:])) {
+
+		if isDirectoryTraversal(string(hdr.Name[p:])) {
 			return 0, fmt.Errorf("Possible directory traversal hack attempt in %s", hdr.Name[p:])
 		}
 
@@ -512,8 +523,9 @@ func extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 				}
 			}
 		}
+
 	}
-	ok, err := makeNameWithPathcheck(string(name[:]), len(name), string(hdr.Name[p:]))
+	ok, name, err := makeNameWithPathcheck(string(name[:]), len(name), string(hdr.Name[p:]))
 	if err != nil || !ok {
 		return 0, fmt.Errorf("Possible symlink traversal hack attempt in %s", q)
 	}
@@ -572,6 +584,7 @@ func extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 			Verbose = saveVerbose
 		} else {
 			if skipFlg == false {
+
 				upFlag, _ = inquireExtract(string(name[:]))
 				if upFlag == false && Force == false {
 					return readSize, nil
@@ -580,7 +593,7 @@ func extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 
 			if skipFlg == true {
 				_, err := os.Lstat(string(name[:]))
-				if err != nil {
+				if err != nil && os.IsExist(err) {
 					return 0, err
 				}
 				if Force != true {

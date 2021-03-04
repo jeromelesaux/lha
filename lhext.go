@@ -24,6 +24,7 @@ var (
 	writingFilename         string
 	archiveName             string
 	CmdFilev                []string
+	CmdFilec                int
 
 	methods = []string{Lzhuff0Method,
 		Lzhuff1Method,
@@ -163,8 +164,8 @@ func CommandAdd(archiveFilepath string) error {
 
 func CommandList(archiveFilepath string) error {
 	archiveName = archiveFilepath
-	var afp *io.Reader
-	var hdr LzHeader
+	var afp io.Reader
+	hdr := NewLzHeader()
 	var i int
 
 	var packedSizeTotal int
@@ -179,7 +180,7 @@ func CommandList(archiveFilepath string) error {
 	if err != nil {
 		return fmt.Errorf("Cannot open archive \"%s\"", archiveName)
 	}
-	*afp = f
+	afp = f
 
 	/* print header message */
 	if !Quiet {
@@ -189,12 +190,12 @@ func CommandList(archiveFilepath string) error {
 	/* print each file information */
 	var hasHeader bool
 	for {
-		err, hasHeader = hdr.GetHeader(afp)
+		err, hasHeader = hdr.GetHeader(&afp)
 		if !hasHeader {
 			break
 		}
 		if needFile(string(hdr.Name[:])) {
-			listOne(&hdr)
+			listOne(hdr)
 			listFiles++
 			packedSizeTotal += hdr.PackedSize
 			originalSizeTotal += hdr.OriginalSize
@@ -202,7 +203,7 @@ func CommandList(archiveFilepath string) error {
 
 		i = hdr.PackedSize
 		v := make([]byte, i)
-		(*afp).Read(v)
+		afp.Read(v)
 	}
 
 	/* close archive file */
@@ -229,7 +230,7 @@ func listTailer(listFiles, packedSizeTotal, originalSizeTotal int) {
 		fmt.Printf("           ")
 	}
 	printStamp(0)
-	fmt.Printf("/n")
+	fmt.Printf("\n")
 }
 
 func printBar() {
@@ -443,7 +444,7 @@ func addDirinfo(name string, hdr *LzHeader) {
 	(*p).Hdr.Name = (*hdr).Name
 	top.Next = dirinfo
 	for tmp = top; tmp.Next != nil; tmp = tmp.Next {
-		if (*p).Hdr.Name == (*tmp).Next.Hdr.Name {
+		if string((*p).Hdr.Name) == string((*tmp).Next.Hdr.Name) {
 			(*p).Next = (*tmp).Next
 			(*tmp).Next = p
 			break
@@ -680,6 +681,9 @@ func extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 }
 
 func needFile(name string) bool {
+	if CmdFilec == 0 {
+		return true
+	}
 	for i := 0; i < len(CmdFilev); i++ {
 		if CmdFilev[i] == name {
 			return true
@@ -908,6 +912,6 @@ func printSize(packedSize, originalSize int) {
 	if originalSize == 0 {
 		fmt.Printf("******")
 	} else { /* Changed N.Watazaki */
-		fmt.Printf("%5.1f%%", packedSize*100.0/originalSize)
+		fmt.Printf("%5.1f%%", float64(packedSize)*100.0/float64(originalSize))
 	}
 }

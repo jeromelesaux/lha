@@ -11,7 +11,6 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
-	"unsafe"
 )
 
 var (
@@ -32,16 +31,16 @@ type LzHeaderList struct {
 type LzHeader struct {
 	HeaderSize      int
 	SizeFieldLength int
-	Method          [methodTypeStorage]byte
+	Method          []byte
 	PackedSize      int
 	OriginalSize    int
 	Attribute       byte
 	HeaderLevel     byte
-	Name            [FilenameLength]byte
-	Realname        [FilenameLength]byte /* real name for symbolic link */
-	Crc             uint                 /* file CRC */
-	HasCrc          bool                 /* file CRC */
-	HeaderCrc       uint                 /* header CRC */
+	Name            []byte
+	Realname        []byte /* real name for symbolic link */
+	Crc             uint   /* file CRC */
+	HasCrc          bool   /* file CRC */
+	HeaderCrc       uint   /* header CRC */
 	ExtendType      byte
 	MinorVersion    byte
 
@@ -50,12 +49,19 @@ type LzHeader struct {
 	UnixMode              uint16
 	UnixUID               uint16
 	UnixGid               uint16
-	User                  [256]byte
-	Group                 [256]byte
+	User                  []byte
+	Group                 []byte
 }
 
 func NewLzHeader() *LzHeader {
-	return &LzHeader{}
+	return &LzHeader{
+		Method:     make([]byte, methodTypeStorage),
+		Name:       make([]byte, FilenameLength),
+		Realname:   make([]byte, FilenameLength),
+		User:       make([]byte, 256),
+		Group:      make([]byte, 256),
+		ExtendType: ExtendGeneric,
+	}
 }
 
 func (l *LzHeader) InitHeader(fileSize int, headerLevel byte) {
@@ -129,7 +135,7 @@ func getLongword() int {
 	b2 := getByte()
 	b3 := getByte()
 
-	l = int((b3 << 24) + (b2 << 16) + (b1 << 8) + b0)
+	l = int(b3)<<24 + int(b2)<<16 + int(b1)<<8 + int(b0)
 	return l
 }
 
@@ -140,13 +146,15 @@ func putLongWord(v int) {
 	putByte(byte(v >> 24))
 }
 
-func getBytes(buf *[]byte, len, size int) int {
+func getBytes(len, size int) ([]byte, int) {
+	buf := make([]byte, len)
 	var i int
 	for i = 0; i < len && i < size; i++ {
-		(*buf)[i] = (*ptr)[i]
+		buf[i] = (*ptr)[getPtr]
+		getPtr++
 	}
-	getPtr += len
-	return i
+
+	return buf, i
 }
 
 func putBytes(buf []byte, len int) {
@@ -235,9 +243,9 @@ func wintimeToUnixStamp() uint64 {
  */
 
 func (l *LzHeader) getExtendedHeader(fp *io.Reader, headerSize int, hcrc *uint) (error, int) {
-	var data [lzheaderStorage]byte
+	data := make([]byte, lzheaderStorage)
 	var nameLength int
-	var dirname [FilenameLength]byte
+	dirname := make([]byte, FilenameLength)
 	var dirLength, i int
 	wholeSize := headerSize
 	var extType int
@@ -247,7 +255,7 @@ func (l *LzHeader) getExtendedHeader(fp *io.Reader, headerSize int, hcrc *uint) 
 	}
 	nameLength = len(l.Name)
 	for l.HeaderSize != 0 {
-		setupGet((*[]byte)(unsafe.Pointer(&data)), 0, len(data))
+		setupGet(&data, 0, len(data))
 		if len(data) < l.HeaderSize {
 			return fmt.Errorf("header size (%d) too large.", l.HeaderSize), 0
 		}
@@ -266,11 +274,11 @@ func (l *LzHeader) getExtendedHeader(fp *io.Reader, headerSize int, hcrc *uint) 
 			skipBytes(l.HeaderSize - n - 2)
 		case 1:
 			/* filename */
-			nameLength = getBytes((*[]byte)(unsafe.Pointer(&l.Name)), l.HeaderSize-n, len(l.Name)-1)
-			l.Name[nameLength] = 0
+			l.Name, nameLength = getBytes(l.HeaderSize-n, len(l.Name))
+			l.Name[nameLength-1] = 0
 		case 2:
-			dirLength = getBytes((*[]byte)(unsafe.Pointer(&dirname)), headerSize-n, len(dirname)-1)
-			dirname[dirLength] = 0
+			dirname, dirLength = getBytes(headerSize-n, len(dirname))
+			dirname[dirLength-1] = 0
 		case 0x40:
 			/* MS-DOS attribute */
 			l.Attribute = byte(getWord())
@@ -295,12 +303,12 @@ func (l *LzHeader) getExtendedHeader(fp *io.Reader, headerSize int, hcrc *uint) 
 			l.UnixMode = uint16(getWord())
 		case 0x51:
 			/* UNIX group name */
-			i = getBytes((*[]byte)(unsafe.Pointer(&l.Group)), headerSize-n, len(l.Group)-1)
-			l.Group[i] = 0
+			l.Group, i = getBytes(headerSize-n, len(l.Group))
+			l.Group[i-1] = 0
 		case 0x53:
 			/* UNIX user name */
-			i = getBytes((*[]byte)(unsafe.Pointer(&l.User)), headerSize-n, len(l.User)-1)
-			l.User[i] = 0
+			l.User, i = getBytes(headerSize-n, len(l.User))
+			l.User[i-1] = 0
 		case 0x54:
 			/* UNIX last modified time */
 			l.UnixLastModifiedStamp = int64(getLongword())
@@ -327,7 +335,7 @@ func (l *LzHeader) getExtendedHeader(fp *io.Reader, headerSize int, hcrc *uint) 
 			skipBytes(headerSize - n)
 		}
 		if *hcrc != 0 {
-			*hcrc = calcCrc(*hcrc, (*[]byte)(unsafe.Pointer(&data)), uint(getPtr), uint(headerSize))
+			*hcrc = calcCrc(*hcrc, &data, uint(getPtr), uint(headerSize))
 		}
 
 		if l.SizeFieldLength == 2 {
@@ -437,19 +445,20 @@ func (l *LzHeader) getHeaderLevel0(fp *io.Reader, data []byte) (error, bool) {
 		return fmt.Errorf("Invalid header (LHarc file ?)"), false
 	}
 
-	if calcSum((*[]byte)(unsafe.Pointer(&data)), iMethod, headerSize) != checksum {
+	if calcSum(&data, iMethod, headerSize) != checksum {
 		return fmt.Errorf("Checksum error (LHarc file?)"), false
 	}
 
-	getBytes((*[]byte)(unsafe.Pointer(&l.Method)), 5, 2) // sizeof
+	l.Method, _ = getBytes(5, len(l.Method)) // sizeof
+
 	l.PackedSize = getLongword()
 	l.OriginalSize = getLongword()
 	l.UnixLastModifiedStamp = genericToUnixStamp(int64(getLongword()))
 	l.Attribute = getByte() /* MS-DOS attribute */
 	l.HeaderLevel = getByte()
 	nameLength = int(getByte())
-	i = getBytes((*[]byte)(unsafe.Pointer(&l.Name)), nameLength, 2-1) // sizeof l.name
-	l.Name[i] = 0
+	l.Name, i = getBytes(nameLength, len(l.Name)) // sizeof l.name
+	l.Name[i-1] = 0
 
 	/* defaults for other type */
 	l.UnixMode = uint16(UnixFileRegular) | uint16(UnixRwRwRw)
@@ -555,20 +564,22 @@ func (l *LzHeader) getHeaderLevel1(fp *io.Reader, data []byte) (err error, ok bo
 		return fmt.Errorf("Invalid header (LHarc file ?)"), false
 	}
 
-	if calcSum((*[]byte)(unsafe.Pointer(&data)), iMethod, headerSize) != checksum {
+	if calcSum(&data, iMethod, headerSize) != checksum {
 		return fmt.Errorf("Checksum error (LHarc file?)"), false
 	}
 
-	getBytes((*[]byte)(unsafe.Pointer(&l.Method)), 5, 2) //sizeof(l.method)
-	l.PackedSize = getLongword()                         /* skip size */
+	l.Method, _ = getBytes(5, len(l.Method)) //sizeof(l.method)
+
+	l.PackedSize = getLongword() /* skip size */
 	l.OriginalSize = getLongword()
 	l.UnixLastModifiedStamp = genericToUnixStamp(int64(getLongword()))
 	l.Attribute = getByte() /* 0x20 fixed */
 	l.HeaderLevel = getByte()
 
 	nameLength = int(getByte())
-	i = getBytes((*[]byte)(unsafe.Pointer(&l.Name)), nameLength, 2-1) // sizeof(l.name)
-	l.Name[i] = 0
+
+	l.Name, i = getBytes(nameLength, len(l.Name)) // sizeof(l.name)
+	l.Name[i-1] = 0
 
 	/* defaults for other type */
 	l.UnixMode = uint16(UnixFileRegular) | uint16(UnixRwRwRw)
@@ -651,7 +662,7 @@ func (l *LzHeader) getHeaderLevel2(fp *io.Reader, data []byte) (error, bool) {
 		return fmt.Errorf("Invalid header (LHarc file ?)"), false
 	}
 
-	getBytes((*[]byte)(unsafe.Pointer(&l.Method)), 5, 2) // sizeof(l.method)
+	l.Method, _ = getBytes(5, len(l.Method)) // sizeof(l.method)
 	l.PackedSize = getLongword()
 	l.OriginalSize = getLongword()
 	l.UnixLastModifiedStamp = int64(getLongword())
@@ -670,7 +681,7 @@ func (l *LzHeader) getHeaderLevel2(fp *io.Reader, data []byte) (error, bool) {
 
 	initializeCrc(&hcrc)
 
-	hcrc = calcCrc(hcrc, (*[]byte)(unsafe.Pointer(&data)), 0, uint(n-len(data)))
+	hcrc = calcCrc(hcrc, &data, 0, uint(n-len(data)))
 	err, extendSize = l.getExtendedHeader(fp, extendSize, &hcrc)
 	if err != nil || extendSize == -1 {
 		return err, false
@@ -738,7 +749,7 @@ func (l *LzHeader) getHeaderLevel3(fp *io.Reader, data []byte) (error, bool) {
 		return fmt.Errorf("Invalid header (LHarc file ?)"), false
 	}
 
-	getBytes((*[]byte)(unsafe.Pointer(&l.Method)), 5, 2) //sizeof(l.method)
+	l.Method, _ = getBytes(5, len(l.Method)) //sizeof(l.method)
 	l.PackedSize = getLongword()
 	l.OriginalSize = getLongword()
 	l.UnixLastModifiedStamp = int64(getLongword())
@@ -762,7 +773,7 @@ func (l *LzHeader) getHeaderLevel3(fp *io.Reader, data []byte) (error, bool) {
 	extendSize = getLongword()
 
 	initializeCrc(&hcrc)
-	hcrc = calcCrc(hcrc, (*[]byte)(unsafe.Pointer(&data)), 0, uint(nb-len(data)))
+	hcrc = calcCrc(hcrc, &data, 0, uint(nb-len(data)))
 
 	err, extendSize = l.getExtendedHeader(fp, extendSize, &hcrc)
 	if err != nil || extendSize == -1 {
@@ -783,7 +794,7 @@ func (l *LzHeader) getHeaderLevel3(fp *io.Reader, data []byte) (error, bool) {
 }
 
 func (l *LzHeader) GetHeader(fp *io.Reader) (error, bool) {
-	var data [lzheaderStorage]byte
+	data := make([]byte, lzheaderStorage)
 
 	archiveKanjiCode := codeSJIS
 	systemKanjiCode := defaultSystemKanjiCode
@@ -793,7 +804,7 @@ func (l *LzHeader) GetHeader(fp *io.Reader) (error, bool) {
 	var filenameCase int = none
 	var endMark byte
 
-	setupGet((*[]byte)(unsafe.Pointer(&data)), 0, len(data))
+	setupGet(&data, 0, len(data))
 	buf := make([]byte, 1)
 	nb, err := (*fp).Read(buf)
 
@@ -886,7 +897,8 @@ func (l *LzHeader) GetHeader(fp *io.Reader) (error, bool) {
 	}
 
 	/* kanji code and delimiter conversion */
-	convertFilename((*[]byte)(unsafe.Pointer(&l.Name)), len(l.Name), 1, archiveKanjiCode, systemKanjiCode, archiveDelim, systemDelim, filenameCase)
+
+	l.Name = convertFilename(l.Name, len(l.Name), 1, archiveKanjiCode, systemKanjiCode, archiveDelim, systemDelim, filenameCase)
 
 	if l.UnixMode&uint16(UnixFileSymlink) == uint16(UnixFileSymlink) {
 
@@ -906,12 +918,12 @@ func (l *LzHeader) GetHeader(fp *io.Reader) (error, bool) {
 	return nil, true
 }
 
-func convertFilename(name *[]byte, len, size int, fromCode, toCode int, fromDelim, toDelim string, caseTo int) {
+func convertFilename(name []byte, len, size int, fromCode, toCode int, fromDelim, toDelim string, caseTo int) []byte {
 	var i int
 	key := make([]byte, 1)
 	if fromCode == codeSJIS && caseTo == toLower {
 		for i = 0; i < len; i++ {
-			key[0] = (*name)[i]
+			key[0] = (name)[i]
 			r, _ := utf8.DecodeRune(key)
 			if unicode.IsLower(r) {
 				caseTo = none
@@ -920,24 +932,24 @@ func convertFilename(name *[]byte, len, size int, fromCode, toCode int, fromDeli
 		}
 	}
 	for i = 0; i < len; i++ {
-		index := strings.Index(fromDelim, string((*name)[i]))
+		index := strings.Index(fromDelim, string((name)[i]))
 		if index != -1 {
 			//s := len(fromDelim)
-			(*name)[i] = toDelim[index] //name[i] = to_delim[ptr - from_delim];
+			(name)[i] = toDelim[index] //name[i] = to_delim[ptr - from_delim];
 			continue
 		}
-		key[0] = (*name)[i]
+		key[0] = (name)[i]
 		r, _ := utf8.DecodeRune(key)
 		if caseTo == toUpper && unicode.IsLower(r) {
-			(*name)[i] = byte(unicode.ToUpper(r))
+			(name)[i] = byte(unicode.ToUpper(r))
 			continue
 		}
 		if caseTo == toLower && unicode.IsUpper(r) {
-			(*name)[i] = byte(unicode.ToLower(r))
+			(name)[i] = byte(unicode.ToLower(r))
 			continue
 		}
 	}
-
+	return name
 }
 
 /* skip SFX header */
@@ -1007,18 +1019,18 @@ func copyPathElement(dst, src *[]byte, size int) int {
 	return i
 }
 
-func canonPath(newpath, path *[]byte, size int) int {
-	p := removeLeadingDots(string(*path))
-	(*newpath) = []byte(p)
-	return len(*newpath) - len(*path)
+func canonPath(newpath, path []byte, size int) ([]byte, int) {
+	p := removeLeadingDots(string(path))
+	return []byte(p), len(newpath) - len(path)
 }
 
 func (l LzHeader) initHeader(name string, headerLevel byte, fileinfo os.FileInfo) {
+	var length int
 	l.PackedSize = 0
 	l.OriginalSize = int(fileinfo.Size())
 	l.Attribute = genericAttribute
 	l.HeaderLevel = headerLevel
-	length := canonPath((*[]byte)(unsafe.Pointer(&l.Name)), (*[]byte)(unsafe.Pointer(&name)), len(name))
+	l.Name, length = canonPath(l.Name, []byte(name), len(name))
 	l.Crc = 0x0000
 	l.ExtendType = ExtendUnix
 	l.UnixLastModifiedStamp = fileinfo.ModTime().Local().Unix()
@@ -1091,7 +1103,7 @@ func (l *LzHeader) writeHeaderLevel0(data []byte, pathname []byte) int {
 	var nameLength int
 	var headerSize int
 
-	setupPut((*[]byte)(unsafe.Pointer(&data)), 0)
+	setupPut(&data, 0)
 
 	putByte(0x00) /* header size */
 	putByte(0x00) /* check sum */
@@ -1121,7 +1133,7 @@ func (l *LzHeader) writeHeaderLevel0(data []byte, pathname []byte) int {
 	if GenericFormat {
 		headerSize = iGenericHeaderSize + nameLength - 2
 		data[iHeaderSize] = byte(headerSize)
-		data[iHeaderChecksum] = byte(calcSum((*[]byte)(unsafe.Pointer(&data)), iMethod, headerSize))
+		data[iHeaderChecksum] = byte(calcSum(&data, iMethod, headerSize))
 	} else {
 		/* write old-style extend header */
 		putByte(ExtendUnix)
@@ -1134,7 +1146,7 @@ func (l *LzHeader) writeHeaderLevel0(data []byte, pathname []byte) int {
 		/* size of extended header is 12 */
 		headerSize = iLevel0HeaderSize + nameLength - 2
 		data[iHeaderSize] = byte(headerSize)
-		data[iHeaderChecksum] = byte(calcSum((*[]byte)(unsafe.Pointer(&data)), iMethod, headerSize))
+		data[iHeaderChecksum] = byte(calcSum(&data, iMethod, headerSize))
 	}
 
 	return headerSize + 2
@@ -1161,7 +1173,7 @@ func (l *LzHeader) writeHeaderLevel1(data []byte, pathname []byte) int {
 		dirLength = 0
 	}
 
-	setupPut((*[]byte)(unsafe.Pointer(&data)), 0)
+	setupPut(&data, 0)
 
 	putByte(0x00) /* header size */
 	putByte(0x00) /* check sum */
@@ -1218,11 +1230,11 @@ func (l *LzHeader) writeHeaderLevel1(data []byte, pathname []byte) int {
 	/* On level 1 header, the packed size field is contains the ext-header */
 	l.PackedSize += len(extendHeaderTop) - len(data[putPtr:putPtr+len(data)])
 	/* put `skip size' */
-	setupPut((*[]byte)(unsafe.Pointer(&data)), iPackedSize)
+	setupPut(&data, iPackedSize)
 	putLongWord(l.PackedSize)
 
 	data[iHeaderSize] = byte(headerSize)
-	data[iHeaderChecksum] = byte(calcSum((*[]byte)(unsafe.Pointer(&data)), iMethod, headerSize))
+	data[iHeaderChecksum] = byte(calcSum(&data, iMethod, headerSize))
 
 	return headerSize + extendHeaderSize + 2
 }
@@ -1248,7 +1260,7 @@ func (l *LzHeader) writeHeaderLevel2(data []byte, pathname []byte) int {
 		dirname = []byte("")
 		dirLength = 0
 	}
-	setupPut((*[]byte)(unsafe.Pointer(&data)), 0)
+	setupPut(&data, 0)
 
 	putWord(0x0000) /* header size */
 	putBytes(l.Method[:], 5)
@@ -1307,13 +1319,13 @@ func (l *LzHeader) writeHeaderLevel2(data []byte, pathname []byte) int {
 	}
 
 	/* put header size */
-	setupPut((*[]byte)(unsafe.Pointer(&data)), iHeaderSize)
+	setupPut(&data, iHeaderSize)
 	putWord(headerSize)
 
 	/* put header CRC in extended header */
 	initializeCrc(&hcrc)
-	hcrc = calcCrc(hcrc, (*[]byte)(unsafe.Pointer(&data)), 0, uint(headerSize))
-	setupPut((*[]byte)(unsafe.Pointer(&headercrcPtr)), 0)
+	hcrc = calcCrc(hcrc, &data, 0, uint(headerSize))
+	setupPut(&headercrcPtr, 0)
 	putWord(int(hcrc))
 
 	return headerSize
@@ -1328,7 +1340,7 @@ func (l *LzHeader) writeHeader(fp *io.Writer) int {
 	var archiveDelim []byte = []byte("\377")
 	var systemDelim []byte = []byte("/")
 	filenameCase := none
-	var pathname [FilenameLength]byte
+	pathname := make([]byte, methodTypeStorage)
 
 	if optionalArchiveKanjiCode != none {
 		archiveKanjiCode = optionalArchiveKanjiCode
@@ -1363,7 +1375,7 @@ func (l *LzHeader) writeHeader(fp *io.Writer) int {
 		pathname[len(pathname)-1] = 0
 	}
 
-	convertFilename((*[]byte)(unsafe.Pointer(&pathname)),
+	pathname = convertFilename(pathname,
 		len(pathname),
 		2,
 		systemKanjiCode,

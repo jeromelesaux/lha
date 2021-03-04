@@ -60,8 +60,8 @@ func main() {
 	initVariable() /* Added N.Watazaki */
 
 	if *archiveNameOption == "" {
-		flag.PrintDefaults()
 		printVersion()
+		return
 	}
 
 	parseOption()
@@ -71,15 +71,16 @@ func main() {
 
 	switch cmd {
 	case lha.CmdExtract:
-		globalError = lha.CommandExtract(*archiveNameOption)
+		globalError = lha.CommandExtract(*archiveNameOption) // to be tested
 	case lha.CmdAdd:
-		lha.CommandAdd(*archiveNameOption)
+		lha.CommandAdd(*archiveNameOption) // to implement
 	case lha.CmdList:
-		lha.CommandList(*archiveNameOption)
+		lha.CommandList(*archiveNameOption) // to be tested
 	case lha.CmdDelete:
-		lha.CommadDelete(*archiveNameOption)
+		lha.CommadDelete(*archiveNameOption) // to implemennt
 	default:
 		fmt.Fprintf(os.Stderr, "option unknown.")
+		printVersion()
 	}
 
 	if globalError != nil {
@@ -193,6 +194,7 @@ func parseSubOption() {
 }
 
 func printVersion() {
+	flag.PrintDefaults()
 	fmt.Fprintf(os.Stdout, "%s version %s (%s)\n", lha.PackageName, lha.PackageVersion, lha.PlatForm)
 	//fmt.Fprintf(os.Stdout, "  configure options: %s\n", lhaConfigureOptions)
 }

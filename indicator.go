@@ -25,3 +25,14 @@ func finishIndicator(name, msg string) {
 	fmt.Printf("%s\n", msg)
 
 }
+
+func finishIndicator2(name, msg string, pcnt int) {
+	if Quiet {
+		return
+	}
+	if pcnt > 100 {
+		pcnt = 100
+	}
+	fmt.Printf("%s\n", msg)
+	return
+}

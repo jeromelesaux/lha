@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -64,16 +65,54 @@ func NewLzHeader() *LzHeader {
 	}
 }
 
-func (l *LzHeader) InitHeader(fileSize int, headerLevel byte) {
+func initHeader(name string, vStat os.FileInfo, l *LzHeader) {
 	//var len int
 	n := copy(l.Method[:], []byte(Lzhuff0Method))
 	if n != methodTypeStorage {
 		fmt.Fprintf(os.Stderr, "copy lzh method differs expected [%d] and [%d] bytes copied\n", methodTypeStorage, n)
 	}
 	l.PackedSize = 0
-	l.OriginalSize = fileSize
+	l.OriginalSize = int(vStat.Size())
 	l.Attribute = genericAttribute
-	l.HeaderLevel = headerLevel
+	l.HeaderLevel = byte(HeaderLevel)
+	filename := filepath.Base(name)
+	copy(l.Name[:], filename)
+	l.Crc = 0x0000
+	l.ExtendType = ExtendUnix
+	l.UnixLastModifiedStamp = vStat.ModTime().Unix()
+	l.UnixMode = uint16(vStat.Mode())
+
+	info, _ := os.Stat(name)
+	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+		l.UnixUID = uint16(stat.Uid)
+		l.UnixGid = uint16(stat.Gid)
+	} else {
+		// we are not in linux, this won't work anyway in windows,
+		// but maybe you want to log warnings
+		l.UnixUID = uint16(os.Geteuid())
+		l.UnixGid = uint16(os.Getgid())
+	}
+
+	if vStat.IsDir() {
+		copy(l.Method, []byte(LzhdirsMethod))
+		l.Attribute = genericDirectoryAttribute
+		l.OriginalSize = 0
+		if name[len(name)-1] != '/' {
+			name += "/"
+		}
+	}
+	if vStat.Mode()&os.ModeSymlink != 0 {
+		copy(l.Method, []byte(LzhdirsMethod))
+		l.Attribute = genericDirectoryAttribute
+		l.OriginalSize = 0
+		realname, err := os.Readlink(name)
+		if err == nil {
+			copy(l.Realname, []byte(realname))
+		} else {
+			fmt.Fprintf(os.Stderr, "error while reading symlink error : %v\n", err.Error())
+		}
+	}
+	return
 }
 
 func calcSum(p *[]byte, start, len int) int {
@@ -1065,6 +1104,78 @@ func (l LzHeader) initHeader(name string, headerLevel byte, fileinfo os.FileInfo
 	}
 }
 
+func WriteHeader(fp *io.Writer, hdr *LzHeader) error {
+	var headerSize int
+	data := make([]byte, lzheaderStorage)
+
+	var archiveKanjiCode = codeSJIS
+	var systemKanjiCode = defaultSystemKanjiCode
+	var archiveDelim string = "\377"
+	var systemDelim string = "/"
+	var filenameCase int = none
+	pathname := make([]byte, 0)
+
+	if optionalArchiveKanjiCode != 0 {
+		archiveKanjiCode = optionalArchiveKanjiCode
+	}
+	if optionalSystemKanjiCode != 0 {
+		systemKanjiCode = optionalSystemKanjiCode
+	}
+
+	if GenericFormat && ConvertCase {
+		filenameCase = toUpper
+	}
+
+	if hdr.HeaderLevel == 0 {
+		archiveDelim = "\\"
+	}
+
+	if (hdr.UnixMode & uint16(UnixFileSymlink)) == uint16(UnixFileSymlink) {
+		p := strings.LastIndex(string(hdr.Name), "|")
+
+		if p == -1 {
+			return fmt.Errorf("symlink name \"%s\" contains '|' char. change it into '_'", hdr.Name)
+		}
+		pathname = append(pathname, hdr.Name...)
+		pathname = append(pathname, '|')
+		pathname = append(pathname, hdr.Realname...)
+	} else {
+		pathname = append(pathname, hdr.Name...)
+		//	copy(pathname, hdr.Name)
+		pathname = append(pathname, 0)
+	}
+
+	convertFilename(pathname,
+		len(pathname),
+		len(pathname),
+		systemKanjiCode,
+		archiveKanjiCode,
+		(systemDelim),
+		(archiveDelim),
+		filenameCase)
+
+	switch hdr.HeaderLevel {
+	case 0:
+		headerSize = hdr.writeHeaderLevel0(data, pathname)
+		break
+	case 1:
+		headerSize = hdr.writeHeaderLevel1(data, pathname)
+		break
+	case 2:
+		headerSize = hdr.writeHeaderLevel2(data, pathname)
+		break
+	default:
+		return fmt.Errorf("Unknown level header (level %d)", hdr.HeaderLevel)
+
+	}
+
+	_, err := (*fp).Write(data[:headerSize])
+	if err != nil {
+		return fmt.Errorf("Cannot write to temporary file error :%v", err.Error())
+	}
+	return nil
+}
+
 func writeUnixInfo(l *LzHeader) {
 	/* UNIX specific informations */
 
@@ -1243,20 +1354,20 @@ func (l *LzHeader) writeHeaderLevel2(data []byte, pathname []byte) int {
 	var nameLength, dirLength int
 	var basename, dirname []byte
 	var headerSize int
-	var extendHeaderTop []byte
-	var headercrcPtr []byte
+	extendHeaderTop := make([]byte, 0)
+	headercrcPtr := make([]byte, 0)
 	var hcrc uint
 	index := strings.Index(string(pathname), string(lhaPathsep))
 
-	if index != 0 {
+	if index != -1 {
 		basename = pathname[0:index]
 		index++
-		nameLength = len(basename)
+		nameLength = len(string(basename))
 		dirname = pathname
-		dirLength = index - len(dirname)
+		dirLength = index - len(string(dirname))
 	} else {
 		basename = pathname
-		nameLength = len(basename)
+		nameLength = len(string(basename))
 		dirname = []byte("")
 		dirLength = 0
 	}
@@ -1280,7 +1391,8 @@ func (l *LzHeader) writeHeaderLevel2(data []byte, pathname []byte) int {
 
 	/* write extend header from here. */
 	/* write extend header from here. */
-	copy(extendHeaderTop[:], data[putPtr+2:putPtr+2+len(data)])
+	extendHeaderTop = append(extendHeaderTop, data[putPtr+2:len(data)-(putPtr+2)]...)
+	//	copy(extendHeaderTop[:], data[putPtr+2:putPtr+2+len(data)])
 	//extendHeaderTop = putPtr + 2 /* +2 for the field `next header size' */
 	headerSize = len(extendHeaderTop) // - data - 2
 	//extendHeaderTop = putPtr + 2 /* +2 for the field `next header size' */
@@ -1288,7 +1400,8 @@ func (l *LzHeader) writeHeaderLevel2(data []byte, pathname []byte) int {
 	/* write common header */
 	putWord(5)
 	putByte(0x00)
-	copy(headercrcPtr[:], data[putPtr:putPtr+len(data)])
+	headercrcPtr = append(headercrcPtr, data[putPtr:len(data)-putPtr]...)
+	//copy(headercrcPtr[:], data[putPtr:putPtr+len(data)])
 	//headercrcPtr = len(data[putPtr:len(data)])
 	putWord(0x0000) /* header CRC */
 
@@ -1310,7 +1423,7 @@ func (l *LzHeader) writeHeaderLevel2(data []byte, pathname []byte) int {
 
 	putWord(0x0000) /* next header size */
 
-	headerSize = len(data) - len(data[putPtr:putPtr-len(data)]) //- data
+	headerSize = len(data) - len(data[putPtr:len(data)-putPtr]) //- data
 	if (headerSize & 0xff) == 0 {
 		/* cannot put zero at the first byte on level 2 header. */
 		/* adjust header size. */

@@ -19,9 +19,9 @@ var (
 	extractfile        = flag.Bool("e", false, "EXtract from archive ")
 	updatefile         = flag.Bool("u", false, "Update newer files to archive ")
 	deletefile         = flag.Bool("d", false, "Delete from archive ")
-	addfile            = flag.Bool("a", false, "Add(or replace) to archive ")
+	addfile            = flag.String("a", "", "Add(or replace) to archive ")
 	movefile           = flag.Bool("m", false, "Move to archive ")
-	createfile         = flag.Bool("c", false, "re-Construct new archive ")
+	createfile         = flag.String("c", "", "re-Construct new archive ")
 	testcrcfile        = flag.Bool("t", false, "Test file CRC in archive ")
 	verbosemodeoption  = flag.Bool("v", false, "verbose ")
 	nonexecuteoption   = flag.Bool("n", false, "not execute")
@@ -36,9 +36,8 @@ var (
 	cmd byte = lha.CmdUnknown
 
 	timestampArchive bool
-	compressMethod   int
-	headerLevel      int
-	quietMode        int
+
+	quietMode int
 
 	newArchive                  bool
 	updateIfNewer               bool
@@ -47,10 +46,9 @@ var (
 	getFilenameFromStdin        bool
 	recoverArchiveWhenInterrupt bool
 	recursiveArchiving          bool
-	sortContents                bool
-	excludeFiles                []string
-	temporaryFD                 int
-	defaultLzhuffMethod         = lha.Lzhuff5MethodNum
+
+	temporaryFD         int
+	defaultLzhuffMethod = lha.Lzhuff5MethodNum
 )
 
 func main() {
@@ -73,7 +71,7 @@ func main() {
 	case lha.CmdExtract:
 		globalError = lha.CommandExtract(*archiveNameOption) // to be tested
 	case lha.CmdAdd:
-		lha.CommandAdd(*archiveNameOption) // to implement
+		globalError = lha.CommandAdd(*archiveNameOption) // to implement
 	case lha.CmdList:
 		globalError = lha.CommandList(*archiveNameOption) // to be tested
 	case lha.CmdDelete:
@@ -110,15 +108,18 @@ func parseOption() {
 		return
 	}
 
-	if *createfile {
+	if *createfile != "" {
 		newArchive = true
 		cmd = lha.CmdAdd
+		lha.CmdFilev = append(lha.CmdFilev, *createfile)
+		lha.CmdFilec++
 		return
 	}
 
-	if *addfile {
+	if *addfile != "" {
 		cmd = lha.CmdAdd
-
+		lha.CmdFilev = append(lha.CmdFilev, *addfile)
+		lha.CmdFilec++
 	}
 
 	if *deletefile {
@@ -159,20 +160,20 @@ func parseOption() {
 func parseSubOption() {
 	if *genericformat != 5 {
 		lha.GenericFormat = true
-		headerLevel = 0
+		lha.HeaderLevel = 0
 	}
 
 	if *compressionmethod != 0 {
-		compressMethod = lha.Lzhuff1MethodNum
-		headerLevel = 0
+		lha.CompressMethod = lha.Lzhuff1MethodNum
+		lha.HeaderLevel = 0
 		switch *compressionmethod {
 		case 5:
-			compressMethod = lha.Lzhuff5MethodNum
+			lha.CompressMethod = lha.Lzhuff5MethodNum
 		case '6':
-			compressMethod = lha.Lzhuff6MethodNum
+			lha.CompressMethod = lha.Lzhuff6MethodNum
 			break
 		case '7':
-			compressMethod = lha.Lzhuff7MethodNum
+			lha.CompressMethod = lha.Lzhuff7MethodNum
 		default:
 			fmt.Fprintf(os.Stderr, "invalid compression method 'o%d'", *compressionmethod)
 			return
@@ -180,15 +181,15 @@ func parseSubOption() {
 	}
 
 	if *excludefiles != "" {
-		excludeFiles = strings.Split(*excludefiles, ",")
+		lha.ExcludeFiles = strings.Split(*excludefiles, ",")
 	}
 
 	if *headerlevel != 2 {
 		switch *headerlevel {
 		case 0:
-			headerLevel = 0
+			lha.HeaderLevel = 0
 		case 1:
-			headerLevel = 1
+			lha.HeaderLevel = 1
 		}
 	}
 	return
@@ -209,9 +210,9 @@ func initVariable() { /* Added N.Watazaki */
 	lha.Force = false
 	timestampArchive = false
 
-	compressMethod = defaultLzhuffMethod /* defined in config.h */
+	lha.CompressMethod = defaultLzhuffMethod /* defined in config.h */
 
-	headerLevel = 2 /* level 2 */
+	lha.HeaderLevel = 2 /* level 2 */
 	quietMode = 0
 
 	/* view command flags */
@@ -221,15 +222,15 @@ func initVariable() { /* Added N.Watazaki */
 	lha.OutputToStdout = false
 
 	/* append command flags */
-	newArchive = false
-	updateIfNewer = false
-	deleteAfterAppend = false
+	lha.NewArchive = false
+	lha.UpdateIfNewer = false
+	lha.DeleteAfterAppend = false
 	lha.GenericFormat = false
 
 	recoverArchiveWhenInterrupt = false
 	getFilenameFromStdin = false
 	lha.IgnoreDirectory = false
-	excludeFiles = make([]string, 0)
+	lha.ExcludeFiles = make([]string, 0)
 	lha.VerifyMode = false
 
 	lha.ConvertCase = false
@@ -237,17 +238,17 @@ func initVariable() { /* Added N.Watazaki */
 	lha.ExtractDirectory = ""
 	temporaryFD = -1
 
-	backupOldArchive = false
+	lha.BackupOldArchive = false
 
 	lha.ExtractBrokenArchive = false
 	lha.DecodeMacbinaryContents = false
-	sortContents = true
+	lha.SortContents = true
 	recursiveArchiving = true
 	lha.DumpLzss = false
 }
 
 func sortFiles() {
-	if sortContents {
+	if lha.SortContents {
 		sort.Strings(lha.CmdFilev)
 	}
 }

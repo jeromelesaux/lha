@@ -50,10 +50,12 @@ func freadCrc(crcp *uint, p *[]byte, pindex uint, n int, fp io.Reader) (int, err
 			return n, err
 		}
 	} else {
-		n, err := fp.Read((*p))
+		buf := make([]byte, n)
+		n, err := fp.Read(buf)
 		if err != nil {
 			return n, err
 		}
+		copy((*p)[pindex:], buf[:])
 	}
 
 	*crcp = calcCrc(*crcp, p, pindex, uint(n))

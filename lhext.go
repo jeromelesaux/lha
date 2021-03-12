@@ -369,6 +369,7 @@ func addOne(fp *io.Reader, nafp *io.Writer, hdr *LzHeader) error {
 
 	(*nafp).(*os.File).Seek(0, io.SeekStart)
 	WriteHeader(nafp, hdr)
+	(*nafp).(*os.File).Seek(0, io.SeekEnd)
 	return nil
 }
 

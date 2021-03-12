@@ -236,7 +236,7 @@ func outputSt1(c, p uint16) {
 	outputMask >>= 1
 	if outputMask == 0 {
 		outputMask = 1 << (charBit - 1)
-		if outputPos >= bufsiz-3*uint16(charBit) {
+		if outputPos >= (bufsiz-3)*uint16(charBit) {
 			sendBlock()
 			if unpackable {
 				return
@@ -273,6 +273,7 @@ func allocBuf( /* void */ ) []byte {
 	    if (bufsiz < 4 * 1024)
 	        fatal_error("Not enough memory");
 	}*/
+	buf = make([]byte, bufsiz)
 	return buf
 }
 

@@ -21,7 +21,7 @@ func initCodeCache() {
 
 func calcCrc(crc uint, p *[]byte, pIndex, n uint) uint {
 	for n > 0 {
-		crc = updateCrc(&crc, uint((*p)[int(pIndex)]))
+		crc = updateCrc(crc, (*p)[pIndex])
 		pIndex++
 		n--
 	}
@@ -30,11 +30,11 @@ func calcCrc(crc uint, p *[]byte, pIndex, n uint) uint {
 
 func MakeCrcTable() {
 	var i, j, r uint
-	for i = 0; i < ucharMax; i++ {
+	for i = 0; i <= ucharMax; i++ {
 		r = i
 		for j = 0; j < uint(charBit); j++ {
 			if r&1 != 0 {
-				r = (r >> 1) ^ uint(crcpoly)
+				r = (r >> 1) ^ crcpoly
 			} else {
 				r >>= 1
 			}
@@ -44,18 +44,23 @@ func MakeCrcTable() {
 }
 
 func freadCrc(crcp *uint, p *[]byte, pindex uint, n int, fp io.Reader) (int, error) {
+	var err error
 	if TextMode {
 		n, err := freadTxt(p, pindex, n, fp)
 		if err != nil {
 			return n, err
 		}
 	} else {
-		buf := make([]byte, n)
-		n, err := fp.Read(buf)
+		buf := make([]byte, 0, n)
+		n, err = io.ReadFull(fp, buf[:cap(buf)])
+		buf = buf[:n]
+		//n, err := fp.Read(buf)
 		if err != nil {
-			return n, err
+			if err != io.ErrUnexpectedEOF {
+				return n, err
+			}
 		}
-		copy((*p)[pindex:], buf[:])
+		copy((*p)[pindex:int(pindex)+n], buf[:])
 	}
 
 	*crcp = calcCrc(*crcp, p, pindex, uint(n))

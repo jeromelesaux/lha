@@ -80,17 +80,18 @@ func initHeader(name string, vStat os.FileInfo, l *LzHeader) {
 	l.Crc = 0x0000
 	l.ExtendType = ExtendUnix
 	l.UnixLastModifiedStamp = vStat.ModTime().Unix()
-	l.UnixMode = uint16(vStat.Mode())
 
 	info, _ := os.Stat(name)
 	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
 		l.UnixUID = uint16(stat.Uid)
 		l.UnixGid = uint16(stat.Gid)
+		l.UnixMode = uint16(stat.Mode)
 	} else {
 		// we are not in linux, this won't work anyway in windows,
 		// but maybe you want to log warnings
 		l.UnixUID = uint16(os.Geteuid())
 		l.UnixGid = uint16(os.Getgid())
+		l.UnixMode = uint16(vStat.Mode().Perm())
 	}
 
 	if vStat.IsDir() {
@@ -738,7 +739,7 @@ func (l *LzHeader) getHeaderLevel2(fp *io.Reader, data []byte) (error, bool) {
 		if err != nil {
 			return err, false
 		}
-		hcrc = updateCrc(&hcrc, uint(buf[0]))
+		hcrc = updateCrc(hcrc, buf[0])
 	}
 
 	if l.HeaderCrc != hcrc {
@@ -1078,6 +1079,7 @@ func (l LzHeader) initHeader(name string, headerLevel byte, fileinfo os.FileInfo
 	if stat, ok := fileinfo.Sys().(*syscall.Stat_t); ok {
 		l.UnixUID = uint16(stat.Uid)
 		l.UnixGid = uint16(stat.Gid)
+		l.UnixMode = stat.Mode
 	}
 	if fileinfo.IsDir() {
 		copy(l.Method[:], LzhdirsMethod)
@@ -1274,12 +1276,12 @@ func (l *LzHeader) writeHeaderLevel1(data []byte, pathname []byte) int {
 	if index != 0 {
 		basename = pathname[0:index]
 		index++
-		nameLength = len(basename)
+		nameLength = lengthOfStringInByte(basename)
 		dirname = pathname
-		dirLength = index - len(dirname)
+		dirLength = index - lengthOfStringInByte(dirname)
 	} else {
 		basename = pathname
-		nameLength = len(basename)
+		nameLength = lengthOfStringInByte(basename)
 		dirname = []byte("")
 		dirLength = 0
 	}
@@ -1313,9 +1315,9 @@ func (l *LzHeader) writeHeaderLevel1(data []byte, pathname []byte) int {
 	}
 
 	/* write extend header from here. */
-	copy(extendHeaderTop[:], data[putPtr+2:putPtr+2+len(data)])
+	extendHeaderTop = append(extendHeaderTop, data[putPtr+2:len(data)-(putPtr+2)]...)
 	//extendHeaderTop = putPtr + 2 /* +2 for the field `next header size' */
-	headerSize = len(extendHeaderTop) // - data - 2
+	headerSize = putPtr // - data - 2
 
 	/* write filename and dirname */
 
@@ -1349,7 +1351,16 @@ func (l *LzHeader) writeHeaderLevel1(data []byte, pathname []byte) int {
 
 	return headerSize + extendHeaderSize + 2
 }
-
+func lengthOfStringInByte(b []byte) int {
+	l := 0
+	for i := 0; i < len(b); i++ {
+		if b[i] == 0 {
+			break
+		}
+		l++
+	}
+	return l
+}
 func (l *LzHeader) writeHeaderLevel2(data []byte, pathname []byte) int {
 	var nameLength, dirLength int
 	var basename, dirname []byte
@@ -1362,12 +1373,12 @@ func (l *LzHeader) writeHeaderLevel2(data []byte, pathname []byte) int {
 	if index != -1 {
 		basename = pathname[0:index]
 		index++
-		nameLength = len(string(basename))
+		nameLength = lengthOfStringInByte(basename)
 		dirname = pathname
-		dirLength = index - len(string(dirname))
+		dirLength = index - lengthOfStringInByte(dirname)
 	} else {
 		basename = pathname
-		nameLength = len(string(basename))
+		nameLength = lengthOfStringInByte(basename)
 		dirname = []byte("")
 		dirLength = 0
 	}
@@ -1423,7 +1434,7 @@ func (l *LzHeader) writeHeaderLevel2(data []byte, pathname []byte) int {
 
 	putWord(0x0000) /* next header size */
 
-	headerSize = len(data) - len(data[putPtr:len(data)-putPtr]) //- data
+	headerSize = putPtr //- data
 	if (headerSize & 0xff) == 0 {
 		/* cannot put zero at the first byte on level 2 header. */
 		/* adjust header size. */

@@ -65,11 +65,13 @@ func getbits(n byte) uint16 {
 func putcode(n byte, x uint16) error { /* Write leftmost n bits of x */
 
 	for n >= bitcount {
+
 		n -= bitcount
-		subbitbuf += byte(x) >> (ushrtBit - bitcount)
+		subbitbuf += byte(x >> (ushrtBit - bitcount))
 		x <<= bitcount
 		if compsize < origsize {
 			var b []byte
+
 			b = append(b, subbitbuf)
 			_, err := outfile.Write(b)
 			if err != nil {
@@ -82,7 +84,7 @@ func putcode(n byte, x uint16) error { /* Write leftmost n bits of x */
 		subbitbuf = 0
 		bitcount = charBit
 	}
-	subbitbuf += byte(x) >> (ushrtBit - bitcount)
+	subbitbuf += byte(x >> (ushrtBit - bitcount))
 	bitcount -= n
 	return nil
 }

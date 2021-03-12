@@ -2,6 +2,7 @@ package lha
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 )
 
@@ -204,6 +205,14 @@ func encodeStart(method int) {
 		encodeStartSt1()
 	case 3:
 		encodeStartSt1()
+	case 4:
+		encodeStartSt1()
+	case 5:
+		encodeStartSt1()
+	case 6:
+		encodeStartSt1()
+	case 7:
+		encodeStartSt1()
 	}
 }
 
@@ -217,6 +226,14 @@ func encodeEnd(method int) {
 		encodeEndSt1()
 	case 3:
 		encodeEndSt1()
+	case 4:
+		encodeEndSt1()
+	case 5:
+		encodeEndSt1()
+	case 6:
+		encodeEndSt1()
+	case 7:
+		encodeEndSt1()
 	}
 }
 
@@ -229,6 +246,14 @@ func encodeOuput(method int, code, pos uint16) {
 	case 2:
 		outputSt1(code, pos)
 	case 3:
+		outputSt1(code, pos)
+	case 4:
+		outputSt1(code, pos)
+	case 5:
+		outputSt1(code, pos)
+	case 6:
+		outputSt1(code, pos)
+	case 7:
 		outputSt1(code, pos)
 	}
 }
@@ -250,9 +275,12 @@ func nextHash(token, pos uint) uint {
 func updateDict(pos *uint, crc *uint) { /* update dictionary */
 	var i, j uint
 
-	copy(text[0:], text[dicsiz:txtsiz-dicsiz])
+	copy(text[0:], text[dicsiz:txtsiz])
 
-	n, _ := freadCrc(crc, &text, uint(txtsiz-dicsiz), dicsiz, infile)
+	n, err := freadCrc(crc, &text, uint(txtsiz-dicsiz), dicsiz, infile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "errot while freadCrc : %v\n", err)
+	}
 
 	remainder += uint(n)
 
@@ -279,7 +307,6 @@ func nextToken(token *uint, pos *uint, crc *uint) {
 	*pos++
 	if *pos >= uint(txtsiz)-uint(maxmatch) {
 		updateDict(pos, crc)
-		*pos++
 	}
 	*token = nextHash(*token, *pos)
 }
@@ -326,42 +353,40 @@ func searchDict1(token, pos, off, max uint, m *matchdata) {
 	/* max. length of matching string */
 
 	var chain uint
-	var scanPos = hash[token].pos
-	var scanBeg = scanPos - off
-	var scanEnd = pos - uint(dicsiz)
-	var length uint
+	var scanPos int = int(hash[token].pos)
+	var scanBeg int = scanPos - int(off)
+	var scanEnd = int(pos) - dicsiz
+	var l uint
 
-	for scanBeg > scanEnd {
+	for scanBeg > 0 && scanBeg > scanEnd {
 		chain++
-
+		if remainder == 7634 {
+			fmt.Println("")
+		}
 		if text[int(scanBeg)+m.len] == text[int(pos)+m.len] {
 			{
-				var a, b byte
-				var aindex, bindex int
+				var a, b int
+
 				/* collate token */
-				a = text[scanBeg]
-				b = text[pos]
+				a = scanBeg
+				b = int(pos)
 
-				for length = 0; length < max && a == b; length++ {
-					aindex++
-					bindex++
-
-					a = text[scanBeg+uint(aindex)]
-					b = text[pos+uint(bindex)]
+				for l = 0; l < max && text[a] == text[b]; l++ {
+					a++
+					b++
 				}
 			}
 
-			if int(length) > m.len {
-				m.off = pos - scanBeg
-				m.len = int(length)
+			if int(l) > m.len {
+				m.off = pos - uint(scanBeg)
+				m.len = int(l)
 				if m.len == int(max) {
-
 					break
 				}
 			}
 		}
-		scanPos = prevs[scanPos&uint(dicsiz-1)]
-		scanBeg = scanPos - off
+		scanPos = int(prevs[scanPos&(dicsiz-1)])
+		scanBeg = scanPos - int(off)
 	}
 
 	if chain >= limit {
@@ -387,7 +412,7 @@ func encode(inter *interfacing) (uint, error) {
 
 	encodeStart(inter.method)
 
-	for i := 0; i < txtsiz; i++ {
+	for i := 0; i < (txtsiz + 1); i++ {
 		text[i] = ' '
 	}
 	var err error
@@ -422,12 +447,13 @@ func encode(inter *interfacing) (uint, error) {
 			count++
 		} else {
 			/* output length and offset */
-			encodeOuput(inter.method, uint16(last.len+(256-threshold)), uint16((last.off-1)&uint(dicsiz-1)))
+			encodeOuput(inter.method,
+				uint16(last.len+(256-threshold)),
+				uint16((last.off-1)&uint(dicsiz-1)))
 
 			count += last.len
 
-			last.len--
-			last.len--
+			last.len -= 2
 			for last.len > 0 {
 				nextToken(&token, &pos, &crc)
 				insertHash(token, pos)

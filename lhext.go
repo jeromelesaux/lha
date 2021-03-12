@@ -38,10 +38,10 @@ var (
 	ExcludeFiles         []string
 	CmdFilev             []string
 	CmdFilec             int
-	newArchiveName       []byte
+	newArchiveName       string
 	mostRecent           int64
 	newArchiveNameBuffer = make([]byte, FilenameLength)
-	temporaryName        = make([]byte, FilenameLength)
+	temporaryName        string
 	backupArchiveName    = make([]byte, FilenameLength)
 
 	methods = []string{Lzhuff0Method,
@@ -197,11 +197,11 @@ func buildStandardArchiveName(buffer, original []byte, size int) []byte {
 }
 
 func buildTemporaryFile() (*os.File, error) {
-	f, err := ioutil.TempFile("", "lh")
+	f, err := ioutil.TempFile("./", "lh")
 	if err != nil {
 		return nil, err
 	}
-	copy(temporaryName, []byte(f.Name()))
+	temporaryName = f.Name()
 	return f, nil
 }
 func copyOldOne(oafp *io.Reader, nafp *io.Writer, hdr *LzHeader) error {
@@ -251,12 +251,18 @@ func findUpdateFiles(oafp *io.Reader) {
 	sp := stringPool{}
 	hdr := NewLzHeader()
 	var lenName int
-	var err error
 
 	initSP(&sp)
 
 	for {
-		hdr.GetHeader(oafp)
+		err, hasHeader := hdr.GetHeader(oafp)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error while getting header : %v\n", err.Error())
+			break
+		}
+		if !hasHeader {
+			break
+		}
 		if (int(hdr.UnixMode) & UnixFileTypemask) == UnixFileRegular {
 			_, err = os.Lstat(string(name))
 
@@ -359,7 +365,9 @@ func addOne(fp *io.Reader, nafp *io.Writer, hdr *LzHeader) error {
 	}
 	hdr.OriginalSize = vOriginalSize
 	hdr.PackedSize = vPackedSize
+	// go back to the beginning
 
+	(*nafp).(*os.File).Seek(0, io.SeekStart)
 	WriteHeader(nafp, hdr)
 	return nil
 }
@@ -516,9 +524,9 @@ func CommandAdd(archiveFilepath string) error {
 			newArchiveNameBuffer,
 			[]byte(archiveName),
 			len(archiveName))
-		newArchiveName = newArchiveNameBuffer
+		newArchiveName = string(newArchiveNameBuffer)
 	} else {
-		newArchiveName = []byte(archiveName)
+		newArchiveName = archiveName
 	}
 
 	/* build temporary file */
@@ -622,9 +630,14 @@ func CommandAdd(archiveFilepath string) error {
 
 	/* copy temporary file to new archive file */
 	if !Noexec {
-		//	if (newArchiveName) == "-" || err:=os.Rename(temporaryName, newArchiveName); err != nil  {
-		//		temporaryToNewArchiveFile(newArchiveSize)
-		//	}
+
+		if len(newArchiveName) >= 0 {
+			err := os.Rename(temporaryName, newArchiveName)
+			if err != nil {
+				return fmt.Errorf("error while renaming file error : %v", err.Error())
+				//	temporaryToNewArchiveFile(newArchiveSize)
+			}
+		}
 
 		/* set new archive file mode/group */
 		setArchiveFileMode()
@@ -636,6 +649,26 @@ func CommandAdd(archiveFilepath string) error {
 	}
 
 	return nil
+}
+
+func Copy(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return err
+	}
+	return out.Close()
 }
 
 func setArchiveFileMode() {
@@ -868,7 +901,7 @@ func makeNameWithPathcheck(name string, namesz int, q string) (bool, []byte, err
 
 	var offset int
 	if len(ExtractDirectory) > 0 {
-		name = fmt.Sprint("%s/", ExtractDirectory)
+		name = ExtractDirectory + "/"
 		offset += len(name)
 	}
 	var p int

@@ -150,7 +150,7 @@ var (
 	UnixOtherExecPerm  int = 0000001
 	UnixRwRwRw         int = 0000666
 
-	crcpoly uint16 = 0xa001 /* crc-16 (x^16+x^15+x^2+1) */
+	crcpoly uint = 0xA001 /* crc-16 (x^16+x^15+x^2+1) */
 
 	/* huf.c */
 
@@ -210,9 +210,9 @@ func initializeCrc(crc *uint) {
 	(*crc) = 0
 }
 
-func updateCrc(crc *uint, c uint) uint {
+func updateCrc(crc uint, c byte) uint {
 
-	return crctable[((*crc)^(c))&0xff] ^ ((*crc) >> charBit)
+	return crctable[(crc^uint(c))&0xff] ^ (crc >> uint(charBit))
 }
 
 func strequ(a, b string) bool {

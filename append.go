@@ -89,7 +89,7 @@ func encodeAlloc(method int) (int, error) {
 
 	hash = make([]Hash, hshsiz)
 	prevs = make([]uint, maxDicsiz)
-	text = make([]byte, txtsiz)
+	text = make([]byte, txtsiz+1)
 
 	return method, nil
 }

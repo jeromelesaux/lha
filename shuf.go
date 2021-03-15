@@ -16,25 +16,25 @@ var fixed [2][16]int = [2][16]int{
 
 /* ------------------------------------------------------------------------ */
 /* lh3 */
-func decodeStartSt0( /*void*/ ) {
+func (l *Lha) decodeStartSt0( /*void*/ ) {
 	nMax = 286
 	maxmatch = Maxmatch
-	initGetbits()
+	l.initGetbits()
 	initCodeCache()
 	np = 1 << (lzhuff3Dicbit - 6)
 }
 
 /* ------------------------------------------------------------------------ */
-func encodePSt0(j uint16) {
+func (l *Lha) encodePSt0(j uint16) {
 	var i uint16
 
 	i = j >> 6
-	putcode(ptLen[i], ptCode[i])
-	putbits(6, j&0x3f)
+	l.putcode(ptLen[i], ptCode[i])
+	l.putbits(6, j&0x3f)
 }
 
 /* ------------------------------------------------------------------------ */
-func readyMade(method int) {
+func (l *Lha) readyMade(method int) {
 	var i, j int
 	var code, weight uint
 	var tbl int
@@ -60,30 +60,30 @@ func readyMade(method int) {
 
 /* ------------------------------------------------------------------------ */
 /* lh1 */
-func encodeStartFix( /*void*/ ) {
+func (l *Lha) encodeStartFix( /*void*/ ) {
 	nMax = 314
 	maxmatch = 60
 	np = 1 << (12 - 6)
-	initPutbits()
+	l.initPutbits()
 	initCodeCache()
-	startCDyn()
-	readyMade(0)
+	l.startCDyn()
+	l.readyMade(0)
 }
 
 /* ------------------------------------------------------------------------ */
-func readTreeC( /*void*/ ) { /* read tree from file */
+func (l *Lha) readTreeC( /*void*/ ) { /* read tree from file */
 	var i, c int
 
 	i = 0
 	for i < n1 {
-		if getbits(1) != 0 {
-			cLen[i] = byte(getbits(byte(lenfield))) + 1
+		if l.getbits(1) != 0 {
+			cLen[i] = byte(l.getbits(byte(lenfield))) + 1
 		} else {
 			cLen[i] = 0
 		}
 		i++
 		if i == 3 && cLen[0] == 1 && cLen[1] == 1 && cLen[2] == 1 {
-			c = int(getbits(cbit))
+			c = int(l.getbits(cbit))
 			for i = 0; i < n1; i++ {
 				cLen[i] = 0
 			}
@@ -97,15 +97,15 @@ func readTreeC( /*void*/ ) { /* read tree from file */
 }
 
 /* ------------------------------------------------------------------------ */
-func readTreeP( /*void*/ ) { /* read tree from file */
+func (l *Lha) readTreeP( /*void*/ ) { /* read tree from file */
 	var i, c int
 
 	i = 0
 	for i < Np_ {
-		ptLen[i] = byte(getbits(byte(lenfield)))
+		ptLen[i] = byte(l.getbits(byte(lenfield)))
 		i++
 		if i == 3 && ptLen[0] == 1 && ptLen[1] == 1 && ptLen[2] == 1 {
-			c = int(getbits(byte(lzhuff3Dicbit) - 6))
+			c = int(l.getbits(byte(lzhuff3Dicbit) - 6))
 			for i = 0; i < Np_; i++ {
 				ptLen[i] = 0
 			}
@@ -119,14 +119,14 @@ func readTreeP( /*void*/ ) { /* read tree from file */
 
 /* ------------------------------------------------------------------------ */
 /* lh1 */
-func decodeStartFix( /*void*/ ) {
+func (l *Lha) decodeStartFix( /*void*/ ) {
 	nMax = 314
 	maxmatch = 60
-	initGetbits()
+	l.initGetbits()
 	initCodeCache()
 	np = 1 << (lzhuff1Dicbit - 6)
-	startCDyn()
-	readyMade(0)
+	l.startCDyn()
+	l.readyMade(0)
 	makeTable(int16(np), &ptLen, 8, &ptTable)
 }
 
@@ -134,27 +134,27 @@ func decodeStartFix( /*void*/ ) {
 /* lh3 */
 var blocksize uint16 = 0
 
-func decodeCSt0( /*void*/ ) uint16 {
+func (l *Lha) decodeCSt0( /*void*/ ) uint16 {
 	var (
 		i, j int
 	)
 	if blocksize == 0 { /* read block head */
-		blocksize = getbits(byte(bufbits)) /* read block blocksize */
-		readTreeC()
-		if getbits(1) != 0 {
-			readTreeP()
+		blocksize = l.getbits(byte(bufbits)) /* read block blocksize */
+		l.readTreeC()
+		if l.getbits(1) != 0 {
+			l.readTreeP()
 		} else {
-			readyMade(1)
+			l.readyMade(1)
 		}
 		makeTable(int16(Np), &ptLen, 8, &ptTable)
 	}
 	blocksize--
-	j = int(cTable[peekbits(12)])
+	j = int(cTable[l.peekbits(12)])
 	if j < n1 {
-		fillbuf(cLen[j])
+		l.fillbuf(cLen[j])
 	} else {
-		fillbuf(12)
-		i = int(bitbuf)
+		l.fillbuf(12)
+		i = int(l.bitbuf)
 		for {
 			if i < 0 {
 				j = int(right[j])
@@ -166,27 +166,27 @@ func decodeCSt0( /*void*/ ) uint16 {
 				break
 			}
 		} //while (j >= N1);
-		fillbuf(cLen[j] - 12)
+		l.fillbuf(cLen[j] - 12)
 	}
 	if j == n1-1 {
-		j += int(getbits(byte(extrabits)))
+		j += int(l.getbits(byte(extrabits)))
 	}
 	return uint16(j)
 }
 
 /* ------------------------------------------------------------------------ */
 /* lh1, 3 */
-func decodePSt0( /*void*/ ) uint16 {
+func (l *Lha) decodePSt0( /*void*/ ) uint16 {
 	var (
 		i, j int
 	)
 
-	j = int(ptTable[peekbits(8)])
+	j = int(ptTable[l.peekbits(8)])
 	if j < int(np) {
-		fillbuf(ptLen[j])
+		l.fillbuf(ptLen[j])
 	} else {
-		fillbuf(8)
-		i = int(bitbuf)
+		l.fillbuf(8)
+		i = int(l.bitbuf)
 		for {
 			if i < 0 {
 				j = int(right[j])
@@ -198,7 +198,7 @@ func decodePSt0( /*void*/ ) uint16 {
 				break
 			}
 		}
-		fillbuf(ptLen[j] - 8)
+		l.fillbuf(ptLen[j] - 8)
 	}
-	return uint16((j << 6) + int(getbits(6)))
+	return uint16((j << 6) + int(l.getbits(6)))
 }

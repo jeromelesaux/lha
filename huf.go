@@ -75,41 +75,41 @@ func countTFreq( /*void*/ ) {
 }
 
 /* ------------------------------------------------------------------------ */
-func writePtLen(n, nbit, i_special int16) {
+func (l *Lha) writePtLen(n, nbit, i_special int16) {
 	var i, k int16
 
 	for n > 0 && ptLen[n-1] == 0 {
 		n--
 	}
-	putbits(byte(nbit), uint16(n))
+	l.putbits(byte(nbit), uint16(n))
 	i = 0
 	for i < n {
 		k = int16(ptLen[i])
 		i++
 		if k <= 6 {
-			putbits(3, uint16(k))
+			l.putbits(3, uint16(k))
 		} else {
 			/* k=7 -> 1110  k=8 -> 11110  k=9 -> 111110 ... */
-			putbits(byte(k)-3, ushrtMax<<1)
+			l.putbits(byte(k)-3, ushrtMax<<1)
 		}
 		if i == i_special {
 			for i < 6 && ptLen[i] == 0 {
 				i++
 			}
-			putbits(2, uint16(i)-3)
+			l.putbits(2, uint16(i)-3)
 		}
 	}
 }
 
 /* ------------------------------------------------------------------------ */
-func writeCLen( /*void*/ ) {
+func (l *Lha) writeCLen( /*void*/ ) {
 	var i, k, n, count uint16
 
 	n = Nc
 	for n > 0 && cLen[n-1] == 0 {
 		n--
 	}
-	putbits(cbit, n)
+	l.putbits(cbit, n)
 	i = 0
 	for i < n {
 		k = uint16(cLen[i])
@@ -122,34 +122,34 @@ func writeCLen( /*void*/ ) {
 			}
 			if count <= 2 {
 				for k = 0; k < count; k++ {
-					putcode(ptLen[0], ptCode[0])
+					l.putcode(ptLen[0], ptCode[0])
 				}
 			} else if count <= 18 {
-				putcode(ptLen[1], ptCode[1])
-				putbits(4, count-3)
+				l.putcode(ptLen[1], ptCode[1])
+				l.putbits(4, count-3)
 			} else {
 				if count == 19 {
-					putcode(ptLen[0], ptCode[0])
-					putcode(ptLen[1], ptCode[1])
-					putbits(4, 15)
+					l.putcode(ptLen[0], ptCode[0])
+					l.putcode(ptLen[1], ptCode[1])
+					l.putbits(4, 15)
 				} else {
-					putcode(ptLen[2], ptCode[2])
-					putbits(cbit, count-20)
+					l.putcode(ptLen[2], ptCode[2])
+					l.putbits(cbit, count-20)
 				}
 			}
 		} else {
-			putcode(ptLen[k+2], ptCode[k+2])
+			l.putcode(ptLen[k+2], ptCode[k+2])
 		}
 	}
 }
 
 /* ------------------------------------------------------------------------ */
-func encodeC(c int16) {
-	putcode(cLen[c], cCode[c])
+func (l *Lha) encodeC(c int16) {
+	l.putcode(cLen[c], cCode[c])
 }
 
 /* ------------------------------------------------------------------------ */
-func encodeP(p uint16) {
+func (l *Lha) encodeP(p uint16) {
 	var c, q uint16
 
 	c = 0
@@ -158,42 +158,42 @@ func encodeP(p uint16) {
 		q >>= 1
 		c++
 	}
-	putcode(ptLen[c], ptCode[c])
+	l.putcode(ptLen[c], ptCode[c])
 	if c > 1 {
-		putbits(byte(c)-1, p)
+		l.putbits(byte(c)-1, p)
 	}
 }
 
 /* ------------------------------------------------------------------------ */
-func sendBlock( /* void */ ) {
+func (l *Lha) sendBlock( /* void */ ) {
 	var flags byte
 	var i, k, root, pos, size uint16
 
 	root = uint16(makeTree(int(Nc), &cFreq, &cLen, &cCode))
 	size = cFreq[root]
-	putbits(16, size)
+	l.putbits(16, size)
 	if root >= Nc {
 		countTFreq()
 		root = uint16(makeTree(int(Nt), &tFreq, &ptLen, &ptCode))
 		if root >= Nt {
-			writePtLen(int16(Nt), int16(tbit), 3)
+			l.writePtLen(int16(Nt), int16(tbit), 3)
 		} else {
-			putbits(tbit, 0)
-			putbits(tbit, root)
+			l.putbits(tbit, 0)
+			l.putbits(tbit, root)
 		}
-		writeCLen()
+		l.writeCLen()
 	} else {
-		putbits(tbit, 0)
-		putbits(tbit, 0)
-		putbits(cbit, 0)
-		putbits(cbit, root)
+		l.putbits(tbit, 0)
+		l.putbits(tbit, 0)
+		l.putbits(cbit, 0)
+		l.putbits(cbit, root)
 	}
 	root = uint16(makeTree(int(np), &pFreq, &ptLen, &ptCode))
 	if root >= uint16(np) {
-		writePtLen(int16(np), int16(pbit), -1)
+		l.writePtLen(int16(np), int16(pbit), -1)
 	} else {
-		putbits(pbit, 0)
-		putbits(pbit, root)
+		l.putbits(pbit, 0)
+		l.putbits(pbit, root)
 	}
 	pos = 0
 	for i = 0; i < size; i++ {
@@ -204,18 +204,18 @@ func sendBlock( /* void */ ) {
 			flags <<= 1
 		}
 		if flags&(1<<(charBit-1)) != 0 {
-			encodeC(int16(buf[pos]) + int16(1<<charBit))
+			l.encodeC(int16(buf[pos]) + int16(1<<charBit))
 			pos++
 			k = uint16(buf[pos]) << charBit
 			pos++
 			k += uint16(buf[pos])
 			pos++
-			encodeP(k)
+			l.encodeP(k)
 		} else {
-			encodeC(int16(buf[pos]))
+			l.encodeC(int16(buf[pos]))
 			pos++
 		}
-		if unpackable {
+		if l.unpackable {
 			return
 		}
 	}
@@ -231,14 +231,14 @@ func sendBlock( /* void */ ) {
 /* lh4, 5, 6, 7 */
 var cpos uint16
 
-func outputSt1(c, p uint16) {
+func (l *Lha) outputSt1(c, p uint16) {
 
 	outputMask >>= 1
 	if outputMask == 0 {
 		outputMask = 1 << (charBit - 1)
 		if outputPos >= (bufsiz-3)*uint16(charBit) {
-			sendBlock()
-			if unpackable {
+			l.sendBlock()
+			if l.unpackable {
 				return
 			}
 			outputPos = 0
@@ -279,7 +279,7 @@ func allocBuf( /* void */ ) []byte {
 
 /* ------------------------------------------------------------------------ */
 /* lh4, 5, 6, 7 */
-func encodeStartSt1( /* void */ ) {
+func (l *Lha) encodeStartSt1( /* void */ ) {
 	var i int
 
 	switch int(dicbit) {
@@ -306,17 +306,17 @@ func encodeStartSt1( /* void */ ) {
 
 	outputPos = 0
 	outputMask = 0
-	initPutbits()
+	l.initPutbits()
 	initCodeCache()
 	buf[0] = 0
 }
 
 /* ------------------------------------------------------------------------ */
 /* lh4, 5, 6, 7 */
-func encodeEndSt1( /* void */ ) {
-	if !unpackable {
-		sendBlock()
-		putbits(charBit-1, 0) /* flush remaining bits */
+func (l *Lha) encodeEndSt1( /* void */ ) {
+	if !l.unpackable {
+		l.sendBlock()
+		l.putbits(charBit-1, 0) /* flush remaining bits */
 	}
 }
 
@@ -334,20 +334,20 @@ func min16(a, b int16) int16 {
 	return a
 }
 
-func peekbits(n int) uint16 {
-	return bitbuf >> (16 - uint16(n))
+func (l *Lha) peekbits(n int) uint16 {
+	return l.bitbuf >> (16 - uint16(n))
 }
 
 /* ------------------------------------------------------------------------ */
 /*                              decoding                                    */
 /* ------------------------------------------------------------------------ */
-func readPtLen(nn, nbit, i_special int16) {
+func (l *Lha) readPtLen(nn, nbit, i_special int16) {
 
 	var i, c, n int
 
-	n = int(getbits(byte(nbit)))
+	n = int(l.getbits(byte(nbit)))
 	if n == 0 {
-		c = int(getbits(byte(nbit)))
+		c = int(l.getbits(byte(nbit)))
 		for i = 0; i < int(nn); i++ {
 			ptLen[i] = 0
 		}
@@ -357,22 +357,22 @@ func readPtLen(nn, nbit, i_special int16) {
 	} else {
 		i = 0
 		for i < min(n, int(Npt)) {
-			c = int(peekbits(3))
+			c = int(l.peekbits(3))
 			if c != 7 {
-				fillbuf(3)
+				l.fillbuf(3)
 			} else {
 				mask := 1 << (16 - 4)
-				for mask&int(bitbuf) != 0 {
+				for mask&int(l.bitbuf) != 0 {
 					mask >>= 1
 					c++
 				}
-				fillbuf(byte(c) - 3)
+				l.fillbuf(byte(c) - 3)
 			}
 
 			ptLen[i] = byte(c)
 			i++
 			if i == int(i_special) {
-				c = int(getbits(2))
+				c = int(l.getbits(2))
 				c--
 				for c >= 0 && i < int(Npt) {
 					ptLen[i] = 0
@@ -390,12 +390,12 @@ func readPtLen(nn, nbit, i_special int16) {
 }
 
 /* ------------------------------------------------------------------------ */
-func readCLen( /* void */ ) {
+func (l *Lha) readCLen( /* void */ ) {
 	var i, c, n int16
 
-	n = int16(getbits(cbit))
+	n = int16(l.getbits(cbit))
 	if n == 0 {
-		c = int16(getbits(cbit))
+		c = int16(l.getbits(cbit))
 		for i = 0; i < int16(Nc); i++ {
 			cLen[i] = 0
 		}
@@ -405,11 +405,11 @@ func readCLen( /* void */ ) {
 	} else {
 		i = 0
 		for i < min16(n, int16(Nc)) {
-			c = int16(ptTable[peekbits(8)])
+			c = int16(ptTable[l.peekbits(8)])
 			if c >= int16(Nt) {
 				var mask uint16 = 1 << (16 - 9)
 				for c >= int16(Nt) && (mask != 0 || c != int16(left[c])) {
-					if (bitbuf & mask) != 0 {
+					if (l.bitbuf & mask) != 0 {
 						c = int16(right[c])
 					} else {
 						c = int16(left[c])
@@ -417,15 +417,15 @@ func readCLen( /* void */ ) {
 					mask >>= 1
 				} // for (c >= NT && (mask || c != left[c])); /* CVE-2006-4338 */
 			}
-			fillbuf(ptLen[c])
+			l.fillbuf(ptLen[c])
 			if c <= 2 {
 				if c == 0 {
 					c = 1
 				} else {
 					if c == 1 {
-						c = int16(getbits(4)) + 3
+						c = int16(l.getbits(4)) + 3
 					} else {
-						c = int16(getbits(cbit)) + 20
+						c = int16(l.getbits(cbit)) + 20
 					}
 				}
 				c--
@@ -449,24 +449,24 @@ func readCLen( /* void */ ) {
 
 /* ------------------------------------------------------------------------ */
 /* lh4, 5, 6, 7 */
-func decodeCSt1( /*void*/ ) uint16 {
+func (l *Lha) decodeCSt1( /*void*/ ) uint16 {
 	var j, mask uint16
 
 	if blocksize == 0 {
-		blocksize = getbits(16)
-		readPtLen(int16(Nt), int16(tbit), 3)
-		readCLen()
-		readPtLen(int16(np), int16(pbit), -1)
+		blocksize = l.getbits(16)
+		l.readPtLen(int16(Nt), int16(tbit), 3)
+		l.readCLen()
+		l.readPtLen(int16(np), int16(pbit), -1)
 	}
 	blocksize--
-	j = cTable[peekbits(12)]
+	j = cTable[l.peekbits(12)]
 	if j < Nc {
-		fillbuf(cLen[j])
+		l.fillbuf(cLen[j])
 	} else {
-		fillbuf(12)
+		l.fillbuf(12)
 		mask = 1 << (16 - 1)
 		for j >= Nc && (mask != 0 || j != left[j]) {
-			if (bitbuf & mask) != 0 {
+			if (l.bitbuf & mask) != 0 {
 				j = right[j]
 			} else {
 				j = left[j]
@@ -474,24 +474,24 @@ func decodeCSt1( /*void*/ ) uint16 {
 			mask >>= 1
 			//for (j >= NC && (mask || j != left[j])); /* CVE-2006-4338 */
 		} //for (j >= NC && (mask || j != left[j])); /* CVE-2006-4338 */
-		fillbuf(cLen[j] - 12)
+		l.fillbuf(cLen[j] - 12)
 	}
 	return j
 }
 
 /* ------------------------------------------------------------------------ */
 /* lh4, 5, 6, 7 */
-func decodePSt1( /* void */ ) uint16 {
+func (l *Lha) decodePSt1( /* void */ ) uint16 {
 	var j, mask uint16
 
-	j = ptTable[peekbits(8)]
+	j = ptTable[l.peekbits(8)]
 	if j < uint16(np) {
-		fillbuf(ptLen[j])
+		l.fillbuf(ptLen[j])
 	} else {
-		fillbuf(8)
+		l.fillbuf(8)
 		mask = 1 << (16 - 1)
 		for uint(j) >= np && (mask != 0 || j != left[j]) {
-			if (bitbuf & mask) != 0 {
+			if (l.bitbuf & mask) != 0 {
 				j = right[j]
 			} else {
 				j = left[j]
@@ -499,17 +499,17 @@ func decodePSt1( /* void */ ) uint16 {
 			mask >>= 1
 			//for (j >= np && (mask || j != left[j])); /* CVE-2006-4338 */
 		} //for (j >= np && (mask || j != left[j])); /* CVE-2006-4338 */
-		fillbuf(ptLen[j] - 8)
+		l.fillbuf(ptLen[j] - 8)
 	}
 	if j != 0 {
-		j = (1 << (j - 1)) + getbits(byte(j)-1)
+		j = (1 << (j - 1)) + l.getbits(byte(j)-1)
 	}
 	return j
 }
 
 /* ------------------------------------------------------------------------ */
 /* lh4, 5, 6, 7 */
-func decodeStartSt1( /* void */ ) {
+func (l *Lha) decodeStartSt1( /* void */ ) {
 	switch int(dicbit) {
 	case lzhuff4Dicbit:
 	case lzhuff5Dicbit:
@@ -528,7 +528,7 @@ func decodeStartSt1( /* void */ ) {
 		fmt.Fprintf(os.Stderr, "Cannot use %d bytes dictionary", 1<<dicbit)
 	}
 
-	initGetbits()
+	l.initGetbits()
 	initCodeCache()
 	blocksize = 0
 }

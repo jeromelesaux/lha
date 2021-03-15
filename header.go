@@ -65,50 +65,50 @@ func NewLzHeader() *LzHeader {
 	}
 }
 
-func initHeader(name string, vStat os.FileInfo, l *LzHeader) {
+func (l *Lha) initHeader(name string, vStat os.FileInfo, hdr *LzHeader) {
 	//var len int
-	n := copy(l.Method[:], []byte(Lzhuff0Method))
+	n := copy(hdr.Method[:], []byte(Lzhuff0Method))
 	if n != methodTypeStorage {
 		fmt.Fprintf(os.Stderr, "copy lzh method differs expected [%d] and [%d] bytes copied\n", methodTypeStorage, n)
 	}
-	l.PackedSize = 0
-	l.OriginalSize = int(vStat.Size())
-	l.Attribute = genericAttribute
-	l.HeaderLevel = byte(HeaderLevel)
+	hdr.PackedSize = 0
+	hdr.OriginalSize = int(vStat.Size())
+	hdr.Attribute = genericAttribute
+	hdr.HeaderLevel = byte(l.HeaderLevel)
 	filename := filepath.Base(name)
-	copy(l.Name[:], filename)
-	l.Crc = 0x0000
-	l.ExtendType = ExtendUnix
-	l.UnixLastModifiedStamp = vStat.ModTime().Unix()
+	copy(hdr.Name[:], filename)
+	hdr.Crc = 0x0000
+	hdr.ExtendType = ExtendUnix
+	hdr.UnixLastModifiedStamp = vStat.ModTime().Unix()
 
 	info, _ := os.Stat(name)
 	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
-		l.UnixUID = uint16(stat.Uid)
-		l.UnixGid = uint16(stat.Gid)
-		l.UnixMode = uint16(stat.Mode)
+		hdr.UnixUID = uint16(stat.Uid)
+		hdr.UnixGid = uint16(stat.Gid)
+		hdr.UnixMode = uint16(stat.Mode)
 	} else {
 		// we are not in linux, this won't work anyway in windows,
 		// but maybe you want to log warnings
-		l.UnixUID = uint16(os.Geteuid())
-		l.UnixGid = uint16(os.Getgid())
-		l.UnixMode = uint16(vStat.Mode().Perm())
+		hdr.UnixUID = uint16(os.Geteuid())
+		hdr.UnixGid = uint16(os.Getgid())
+		hdr.UnixMode = uint16(vStat.Mode().Perm())
 	}
 
 	if vStat.IsDir() {
-		copy(l.Method, []byte(LzhdirsMethod))
-		l.Attribute = genericDirectoryAttribute
-		l.OriginalSize = 0
+		copy(hdr.Method, []byte(LzhdirsMethod))
+		hdr.Attribute = genericDirectoryAttribute
+		hdr.OriginalSize = 0
 		if name[len(name)-1] != '/' {
 			name += "/"
 		}
 	}
 	if vStat.Mode()&os.ModeSymlink != 0 {
-		copy(l.Method, []byte(LzhdirsMethod))
-		l.Attribute = genericDirectoryAttribute
-		l.OriginalSize = 0
+		copy(hdr.Method, []byte(LzhdirsMethod))
+		hdr.Attribute = genericDirectoryAttribute
+		hdr.OriginalSize = 0
 		realname, err := os.Readlink(name)
 		if err == nil {
-			copy(l.Realname, []byte(realname))
+			copy(hdr.Realname, []byte(realname))
 		} else {
 			fmt.Fprintf(os.Stderr, "error while reading symlink error : %v\n", err.Error())
 		}

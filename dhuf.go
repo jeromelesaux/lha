@@ -31,7 +31,7 @@ const (
 	rootP     int = treesizeC
 )
 
-func startCDyn( /* void */ ) {
+func (l *Lha) startCDyn( /* void */ ) {
 	var i, j, f int
 	n1 = 512
 	if nMax >= uint(256+maxmatch-uint16(threshold)+1) {
@@ -74,7 +74,7 @@ func startCDyn( /* void */ ) {
 	}
 }
 
-func startPDyn( /* void */ ) {
+func (l *Lha) startPDyn( /* void */ ) {
 	freq[rootP] = 1
 	child[rootP] = int16(^nChar)
 	sNode[nChar] = int16(rootP)
@@ -87,13 +87,13 @@ func startPDyn( /* void */ ) {
 	nextcount = 64
 }
 
-func decodeStartDyn( /* void */ ) {
+func (l *Lha) decodeStartDyn( /* void */ ) {
 	nMax = 286
 	maxmatch = Maxmatch
-	initGetbits()
+	l.initGetbits()
 	initCodeCache()
-	startCDyn()
-	startPDyn()
+	l.startCDyn()
+	l.startPDyn()
 }
 
 func reconst(start, end int) {
@@ -273,7 +273,7 @@ func makeNewNode(p int) {
 	updateP(p)
 }
 
-func encodeCDyn(c uint) {
+func (l *Lha) encodeCDyn(c uint) {
 	var bits uint
 	var p, d, cnt int
 
@@ -296,23 +296,23 @@ func encodeCDyn(c uint) {
 		}
 	}
 	if cnt <= 16 {
-		putcode(byte(cnt), uint16(bits>>16))
+		l.putcode(byte(cnt), uint16(bits>>16))
 	} else {
-		putcode(16, uint16(bits>>16))
-		putbits(byte(cnt-16), uint16(bits))
+		l.putcode(16, uint16(bits>>16))
+		l.putbits(byte(cnt-16), uint16(bits))
 	}
 	if d >= 0 {
-		putbits(8, uint16(d))
+		l.putbits(8, uint16(d))
 	}
 	updateC(int(c))
 }
 
-func decodeCDyn( /* void */ ) uint16 {
+func (l *Lha) decodeCDyn( /* void */ ) uint16 {
 	var c int
 	var buf, cnt int16
 
 	c = int(child[rootC])
-	buf = int16(bitbuf)
+	buf = int16(l.bitbuf)
 	cnt = 0
 	for {
 		v := c
@@ -323,24 +323,24 @@ func decodeCDyn( /* void */ ) uint16 {
 		buf <<= 1
 		cnt++
 		if cnt == 16 {
-			fillbuf(16)
-			buf = int16(bitbuf)
+			l.fillbuf(16)
+			buf = int16(l.bitbuf)
 			cnt = 0
 		}
 		if c <= 0 {
 			break
 		}
 	}
-	fillbuf(byte(cnt))
+	l.fillbuf(byte(cnt))
 	c = ^c
 	updateC(c)
 	if c == n1 {
-		c += int(getbits(8))
+		c += int(l.getbits(8))
 	}
 	return uint16(c)
 }
 
-func decodePDyn( /* void */ ) uint16 {
+func (l *Lha) decodePDyn( /* void */ ) uint16 {
 	var c int
 	var buf, cnt int16
 
@@ -352,7 +352,7 @@ func decodePDyn( /* void */ ) uint16 {
 		}
 	}
 	c = int(child[rootP])
-	buf = int16(bitbuf)
+	buf = int16(l.bitbuf)
 	cnt = 0
 	for c > 0 {
 		v := c
@@ -363,26 +363,26 @@ func decodePDyn( /* void */ ) uint16 {
 		buf <<= 1
 		cnt++
 		if cnt == 16 {
-			fillbuf(16)
-			buf = int16(bitbuf)
+			l.fillbuf(16)
+			buf = int16(l.bitbuf)
 			cnt = 0
 		}
 	}
-	fillbuf(byte(cnt))
+	l.fillbuf(byte(cnt))
 	c = (^c) - nChar
 	updateP(c)
-	return (uint16(c) << 6) + getbits(6)
+	return (uint16(c) << 6) + l.getbits(6)
 }
 
-func outputDyn(code, pos int) {
-	encodeCDyn(uint(code))
+func (l *Lha) outputDyn(code, pos int) {
+	l.encodeCDyn(uint(code))
 	if code >= 0x100 {
-		encodePSt0(uint16(pos))
+		l.encodePSt0(uint16(pos))
 	}
 }
 
 /* ------------------------------------------------------------------------ */
 /* lh1 */
-func encodeEndDyn( /* void */ ) {
-	putcode(7, 0)
+func (l *Lha) encodeEndDyn( /* void */ ) {
+	l.putcode(7, 0)
 }

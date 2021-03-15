@@ -43,13 +43,13 @@ const (
 	offset = (0x100 - 2)
 )
 
-func decodeStartPm2() {
+func (l *Lha) decodeStartPm2() {
 	dicsiz1 = (1 << dicbit) - 1
-	initGetbits()
+	l.initGetbits()
 	histInit()
 	nextcount = 0
 	lastupdate = 0
-	getbits(1) /* discard bit */
+	l.getbits(1) /* discard bit */
 }
 
 var (
@@ -59,9 +59,9 @@ var (
 	repeatBase  [6]int = [6]int{17, 25, 33, 65, 129, 256}
 )
 
-func decodeCPm2() uint16 {
+func (l *Lha) decodeCPm2() uint16 {
 	/* various admin: */
-	for lastupdate != uint(loc) {
+	for lastupdate != uint(l.loc) {
 		histUpdate(dtext[lastupdate])
 		lastupdate = (lastupdate + 1) & dicsiz1
 	}
@@ -75,35 +75,35 @@ func decodeCPm2() uint16 {
 
 		switch nextcount {
 		case 0x0000:
-			maketree1()
-			maketree2(5)
+			l.maketree1()
+			l.maketree2(5)
 			nextcount = 0x0400
 
 		case 0x0400:
-			maketree2(6)
+			l.maketree2(6)
 			nextcount = 0x0800
 
 		case 0x0800:
-			maketree2(7)
+			l.maketree2(7)
 			nextcount = 0x1000
 
 		case 0x1000:
-			if getbits(1) != 0 {
-				maketree1()
+			if l.getbits(1) != 0 {
+				l.maketree1()
 			}
-			maketree2(8)
+			l.maketree2(8)
 			nextcount = 0x2000
 
 		default: /* 0x2000, 0x3000, 0x4000, ... */
-			if getbits(1) != 0 {
-				maketree1()
-				maketree2(8)
+			if l.getbits(1) != 0 {
+				l.maketree1()
+				l.maketree2(8)
 			}
 			nextcount += 0x1000
 
 		}
 	}
-	gettree1 = byte(tree1Get()) /* value preserved for decode_p */
+	gettree1 = byte(l.tree1Get()) /* value preserved for decode_p */
 	if gettree1 >= 29 {
 		fmt.Fprintf(os.Stderr, "Bad table")
 		return 0
@@ -111,17 +111,19 @@ func decodeCPm2() uint16 {
 
 	/* direct value (ret <= UCHAR_MAX) */
 	if gettree1 < 8 {
-		return uint16(histLookup(historyBase[gettree1] + int(getbits(byte(historyBits[gettree1])))))
+		return uint16(histLookup(historyBase[gettree1] +
+			int(l.getbits(byte(historyBits[gettree1])))))
 	}
 	/* repeats: (ret > UCHAR_MAX) */
 	if gettree1 < 23 {
 		return offset + 2 + uint16(gettree1-8)
 	}
 
-	return offset + uint16(repeatBase[gettree1-23]) + getbits(byte(repeatBits[gettree1-23]))
+	return offset + uint16(repeatBase[gettree1-23]) +
+		l.getbits(byte(repeatBits[gettree1-23]))
 }
 
-func decodePPm2() uint16 {
+func (l *Lha) decodePPm2() uint16 {
 	/* gettree1 value preserved from decode_c */
 	var nbits, delta, gettree2 int
 	if gettree1 == 8 { /* 2-byte repeat with offset 0..63 */
@@ -129,7 +131,7 @@ func decodePPm2() uint16 {
 		delta = 0
 	} else {
 		if gettree1 < 28 { /* n-byte repeat with offset 0..8191 */
-			gettree2 = tree2Get()
+			gettree2 = l.tree2Get()
 			if gettree2 == 0 {
 				nbits = 6
 				delta = 0
@@ -143,5 +145,5 @@ func decodePPm2() uint16 {
 		}
 	}
 
-	return uint16(delta) + getbits(byte(nbits))
+	return uint16(delta) + l.getbits(byte(nbits))
 }

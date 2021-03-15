@@ -43,10 +43,10 @@ func MakeCrcTable() {
 	}
 }
 
-func freadCrc(crcp *uint, p *[]byte, pindex uint, n int, fp io.Reader) (int, error) {
+func (l *Lha) freadCrc(crcp *uint, p *[]byte, pindex uint, n int, fp io.Reader) (int, error) {
 	var err error
 	if TextMode {
-		n, err := freadTxt(p, pindex, n, fp)
+		n, err := l.freadTxt(p, pindex, n, fp)
 		if err != nil {
 			return n, err
 		}
@@ -68,7 +68,7 @@ func freadCrc(crcp *uint, p *[]byte, pindex uint, n int, fp io.Reader) (int, err
 	return n, nil
 }
 
-func freadTxt(vp *[]byte, pindex uint, n int, fp io.Reader) (int, error) {
+func (l *Lha) freadTxt(vp *[]byte, pindex uint, n int, fp io.Reader) (int, error) {
 	var c byte
 	var cnt int
 	var p *[]byte
@@ -89,7 +89,7 @@ func freadTxt(vp *[]byte, pindex uint, n int, fp io.Reader) (int, error) {
 
 			if c == '\n' {
 				getcEucCache = int(c)
-				origsize++
+				l.origsize++
 				c = '\r'
 			}
 		}
@@ -100,7 +100,7 @@ func freadTxt(vp *[]byte, pindex uint, n int, fp io.Reader) (int, error) {
 	return cnt, nil
 }
 
-func fwriteCrc(crcp *uint, p []byte, n int, fp *io.Writer) error {
+func (l *Lha) fwriteCrc(crcp *uint, p []byte, n int, fp *io.Writer) error {
 	*crcp = calcCrc(*crcp, &p, 0, uint(n))
 
 	if VerifyMode {

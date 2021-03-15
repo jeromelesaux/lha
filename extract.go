@@ -15,7 +15,7 @@ import (
 /*  Ver. 1.14   Source All chagned              1995.01.14  N.Watazaki      */
 /* ------------------------------------------------------------------------ */
 
-func DecodeLzhuf(infp io.Reader, outfp io.Writer, original_size int, packed_size int, name string, method int, read_sizep *int) int {
+func (l *Lha) DecodeLzhuf(infp io.Reader, outfp io.Writer, original_size int, packed_size int, name string, method int, read_sizep *int) int {
 	var (
 		crc   uint
 		inter interfacing
@@ -79,7 +79,7 @@ func DecodeLzhuf(infp io.Reader, outfp io.Writer, original_size int, packed_size
 		}
 		startIndicator(name, original_size, []byte(mode), 2048)
 
-		if DumpLzss {
+		if l.DumpLzss {
 			fmt.Printf("no use slide\n")
 		}
 
@@ -90,11 +90,11 @@ func DecodeLzhuf(infp io.Reader, outfp io.Writer, original_size int, packed_size
 			mode = "Testing "
 		}
 		startIndicator(name, original_size, []byte(mode), 1<<inter.dicbit)
-		if DumpLzss {
+		if l.DumpLzss {
 			fmt.Printf("\n")
 		}
 
-		crc = decode(&inter)
+		crc = l.decode(&inter)
 		*read_sizep = inter.readSize
 	}
 	mode := "Melted  "

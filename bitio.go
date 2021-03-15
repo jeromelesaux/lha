@@ -2,7 +2,6 @@ package lha
 
 import (
 	"fmt"
-	"io"
 	"os"
 )
 
@@ -16,92 +15,81 @@ import (
 /*              Separated from crcio.c          2002.10.26  Koji Arai       */
 /* ------------------------------------------------------------------------ */
 
-var (
-	subbitbuf  byte
-	bitcount   byte
-	infile     io.Reader
-	outfile    io.Writer
-	unpackable bool
-	compsize   int
-	origsize   int
-	bitbuf     uint16
-)
+func (l *Lha) fillbuf(n byte) error { /* Shift bitbuf n bits left, read n bits */
 
-func fillbuf(n byte) error { /* Shift bitbuf n bits left, read n bits */
-
-	for n > bitcount {
-		n -= bitcount
-		bitbuf = (bitbuf << uint16(bitcount)) + uint16(subbitbuf>>(charBit-bitcount))
-		if compsize != 0 {
-			compsize--
+	for n > l.bitcount {
+		n -= l.bitcount
+		l.bitbuf = (l.bitbuf << uint16(l.bitcount)) + uint16(l.subbitbuf>>(charBit-l.bitcount))
+		if l.compsize != 0 {
+			l.compsize--
 			c := make([]byte, 1)
-			_, err := infile.Read(c)
+			_, err := l.infile.Read(c)
 			if err != nil {
 				return fmt.Errorf("cannot read stream")
 			}
-			subbitbuf = c[0]
+			l.subbitbuf = c[0]
 		} else {
-			subbitbuf = 0
+			l.subbitbuf = 0
 		}
-		bitcount = charBit
+		l.bitcount = charBit
 	}
-	bitcount -= n
-	bitbuf = (bitbuf << uint16(n)) + uint16(subbitbuf>>(charBit-n))
-	subbitbuf <<= n
+	l.bitcount -= n
+	l.bitbuf = (l.bitbuf << uint16(n)) + uint16(l.subbitbuf>>(charBit-n))
+	l.subbitbuf <<= n
 	return nil
 }
 
-func getbits(n byte) uint16 {
+func (l *Lha) getbits(n byte) uint16 {
 	var x uint16
 
-	x = bitbuf >> (2*charBit - n)
-	err := fillbuf(n)
+	x = l.bitbuf >> (2*charBit - n)
+	err := l.fillbuf(n)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "fillbuf error :%v\n", err.Error())
 	}
 	return x
 }
 
-func putcode(n byte, x uint16) error { /* Write leftmost n bits of x */
+func (l *Lha) putcode(n byte, x uint16) error { /* Write leftmost n bits of x */
 
-	for n >= bitcount {
+	for n >= l.bitcount {
 
-		n -= bitcount
-		subbitbuf += byte(x >> (ushrtBit - bitcount))
-		x <<= bitcount
-		if compsize < origsize {
+		n -= l.bitcount
+		l.subbitbuf += byte(x >> (ushrtBit - l.bitcount))
+		x <<= l.bitcount
+		if l.compsize < l.origsize {
 			var b []byte
 
-			b = append(b, subbitbuf)
-			_, err := outfile.Write(b)
+			b = append(b, l.subbitbuf)
+			_, err := l.outfile.Write(b)
 			if err != nil {
 				return fmt.Errorf("Write error in bitio.c(putcode)")
 			}
-			compsize++
+			l.compsize++
 		} else {
-			unpackable = true
+			l.unpackable = true
 		}
-		subbitbuf = 0
-		bitcount = charBit
+		l.subbitbuf = 0
+		l.bitcount = charBit
 	}
-	subbitbuf += byte(x >> (ushrtBit - bitcount))
-	bitcount -= n
+	l.subbitbuf += byte(x >> (ushrtBit - l.bitcount))
+	l.bitcount -= n
 	return nil
 }
 
-func putbits(n byte, x uint16) error { /* Write rightmost n bits of x */
+func (l *Lha) putbits(n byte, x uint16) error { /* Write rightmost n bits of x */
 	x <<= ushrtBit - n
-	return putcode(n, x)
+	return l.putcode(n, x)
 }
 
-func initGetbits( /* void */ ) error {
-	bitbuf = 0
-	subbitbuf = 0
-	bitcount = 0
-	return fillbuf(2 * charBit)
+func (l *Lha) initGetbits( /* void */ ) error {
+	l.bitbuf = 0
+	l.subbitbuf = 0
+	l.bitcount = 0
+	return l.fillbuf(2 * charBit)
 }
 
-func initPutbits( /* void */ ) {
-	bitcount = charBit
-	subbitbuf = 0
+func (l *Lha) initPutbits( /* void */ ) {
+	l.bitcount = charBit
+	l.subbitbuf = 0
 }

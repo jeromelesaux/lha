@@ -10,75 +10,71 @@ package lha
 /* ------------------------------------------------------------------------ */
 
 /* ------------------------------------------------------------------------ */
-var (
-	mFlag, flagcnt, matchpos int
-	loc                      uint16
-	ExtractDirectory         string
-)
+var ()
 
 /* ------------------------------------------------------------------------ */
 /* lzs */
 
-func decodeCLzs( /*void*/ ) uint16 {
-	if getbits(1) != 0 {
-		return getbits(8)
+func (l *Lha) decodeCLzs( /*void*/ ) uint16 {
+	if l.getbits(1) != 0 {
+		return l.getbits(8)
 	} else {
-		matchpos = int(getbits(11))
-		return getbits(4) + 0x100
+		l.matchpos = int(l.getbits(11))
+		return l.getbits(4) + 0x100
 	}
 }
 
 /* ------------------------------------------------------------------------ */
 /* lzs */
 
-func decodePLzs( /*void*/ ) uint16 {
-	return (loc - uint16(matchpos) - uint16(magic0)) & 0x7ff
+func (l *Lha) decodePLzs( /*void*/ ) uint16 {
+	return (l.loc - uint16(l.matchpos) - uint16(magic0)) & 0x7ff
 }
 
 /* ------------------------------------------------------------------------ */
 /* lzs */
-func decodeStartLzs( /*void*/ ) {
-	initGetbits()
+func (l *Lha) decodeStartLzs( /*void*/ ) {
+	l.initGetbits()
 	initCodeCache()
 }
 
 /* ------------------------------------------------------------------------ */
 /* lz5 */
-func decodeCLz5( /*void*/ ) uint16 {
+func (l *Lha) decodeCLz5( /*void*/ ) uint16 {
 	var c int
 	b := make([]byte, 1)
-	if flagcnt == 0 {
-		flagcnt = 8
-		infile.Read(b)
-		mFlag = int(b[0])
+	if l.flagcnt == 0 {
+		l.flagcnt = 8
+		l.infile.Read(b)
+		l.mFlag = int(b[0])
 	}
-	flagcnt--
-	infile.Read(b)
+	l.flagcnt--
+	l.infile.Read(b)
 	c = int(b[0])
-	if (mFlag & 1) == 0 {
-		matchpos = c
-		infile.Read(b)
-		c = int(b[0])
-		matchpos += (c & 0xf0) << 4
+	if (l.mFlag & 1) == 0 {
+		l.matchpos = c
+		l.infile.Read(b)
+		c = int(b[0]) //@TODO add EOF handler
+		l.matchpos += (c & 0xf0) << 4
 		c &= 0x0f
 		c += 0x100
 	}
-	mFlag >>= 1
+	l.mFlag >>= 1
 	return uint16(c)
 }
 
 /* ------------------------------------------------------------------------ */
 /* lz5 */
-func decodePLz5( /*void*/ ) uint16 {
-	return (loc - uint16(matchpos) - uint16(magic5)) & 0xfff
+func (l *Lha) decodePLz5( /*void*/ ) uint16 {
+	return (l.loc - uint16(l.matchpos) - uint16(magic5)) & 0xfff
 }
 
 /* ------------------------------------------------------------------------ */
 /* lz5 */
-func decodeStartLz5( /*void*/ ) {
+func (l *Lha) decodeStartLz5( /*void*/ ) {
 	var i int
 
-	flagcnt = 0
+	l.flagcnt = 0
 	for i = 0; i < 256; i++ {
 		for j := 0; j < 13; j++ {
 			dtext[i*13+18+j] = byte(i)

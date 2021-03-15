@@ -21,13 +21,13 @@ const (
 	hshsiz = uint(1) << 15
 )
 
-func EncodeLzhuf(infp *io.Reader, outfp *io.Writer, size int, original_size_var *int, packed_size_var *int, name []byte, hdr_method []byte) (uint, error) {
+func (l *Lha) EncodeLzhuf(infp *io.Reader, outfp *io.Writer, size int, original_size_var *int, packed_size_var *int, name []byte, hdr_method []byte) (uint, error) {
 	var method = -1
 	var crc uint
 	inter := &interfacing{}
 
 	if method < 0 {
-		method = CompressMethod
+		method = l.CompressMethod
 		if method > 0 {
 			method, _ = encodeAlloc(method)
 		}
@@ -40,7 +40,7 @@ func EncodeLzhuf(infp *io.Reader, outfp *io.Writer, size int, original_size_var 
 		inter.outfile = *outfp
 		inter.original = size
 		startIndicator(string(name), size, []byte("Freezing"), 1<<dicbit)
-		crc, _ = encode(inter)
+		crc, _ = l.encode(inter)
 		*packed_size_var = inter.packed
 		*original_size_var = inter.original
 	} else {

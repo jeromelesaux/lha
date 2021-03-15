@@ -7,9 +7,7 @@ import (
 )
 
 var (
-	ExtractBrokenArchive, DumpLzss bool
-	dicsiz                         int
-	remainder                      uint
+	dicsiz int
 )
 
 const (
@@ -21,107 +19,107 @@ type matchdata struct {
 	off uint
 }
 
-func decodeMethodStart(method int) {
+func (l *Lha) decodeMethodStart(method int) {
 	switch method - 1 {
 	case 0: /* lh1 */
-		decodeStartFix()
+		l.decodeStartFix()
 	case 1: /* lh2 */
-		decodeStartDyn()
+		l.decodeStartDyn()
 	case 2: /* lh3 */
-		decodeStartSt0()
+		l.decodeStartSt0()
 	case 3: /* lh4 */
-		decodeStartSt1()
+		l.decodeStartSt1()
 	case 4: /* lh5 */
-		decodeStartSt1()
+		l.decodeStartSt1()
 	case 5: /* lh6 */
-		decodeStartSt1()
+		l.decodeStartSt1()
 	case 6: /* lh7 */
-		decodeStartSt1()
+		l.decodeStartSt1()
 	case 7: /* lzs */
-		decodeStartLzs()
+		l.decodeStartLzs()
 	case 8: /* lz5 */
-		decodeStartLz5()
+		l.decodeStartLz5()
 	case 12: /* pm2 */
-		decodeStartPm2()
+		l.decodeStartPm2()
 	default:
 		return
 	}
 }
 
-func decodeMethodP(method int) uint16 {
+func (l *Lha) decodeMethodP(method int) uint16 {
 	switch method - 1 {
 	case 0: /* lh1 */
-		return decodePSt0()
+		return l.decodePSt0()
 	case 1: /* lh2 */
-		return decodePDyn()
+		return l.decodePDyn()
 	case 2: /* lh3 */
-		return decodePSt0()
+		return l.decodePSt0()
 	case 3: /* lh4 */
-		return decodePSt1()
+		return l.decodePSt1()
 	case 4: /* lh5 */
-		return decodePSt1()
+		return l.decodePSt1()
 	case 5: /* lh6 */
-		return decodePSt1()
+		return l.decodePSt1()
 	case 6: /* lh7 */
-		return decodePSt1()
+		return l.decodePSt1()
 	case 7: /* lzs */
-		return decodePLzs()
+		return l.decodePLzs()
 	case 8: /* lz5 */
-		return decodePLz5()
+		return l.decodePLz5()
 	case 12: /* pm2 */
-		return decodePPm2()
+		return l.decodePPm2()
 	default:
 		return 0
 	}
 	return 0
 }
 
-func decodeMethodC(method int) uint16 {
+func (l *Lha) decodeMethodC(method int) uint16 {
 	switch method - 1 {
 	case 0: /* lh1 */
-		return decodeCDyn()
+		return l.decodeCDyn()
 	case 1: /* lh2 */
-		return decodeCDyn()
+		return l.decodeCDyn()
 	case 2: /* lh3 */
-		return decodeCSt0()
+		return l.decodeCSt0()
 	case 3: /* lh4 */
-		return decodeCSt1()
+		return l.decodeCSt1()
 	case 4: /* lh5 */
-		return decodeCSt1()
+		return l.decodeCSt1()
 	case 5: /* lh6 */
-		return decodeCSt1()
+		return l.decodeCSt1()
 	case 6: /* lh7 */
-		return decodeCSt1()
+		return l.decodeCSt1()
 	case 7: /* lzs */
-		return decodeCLzs()
+		return l.decodeCLzs()
 	case 8: /* lz5 */
-		return decodeCLz5()
+		return l.decodeCLz5()
 	case 12: /* pm2 */
-		return decodeCPm2()
+		return l.decodeCPm2()
 	default:
 		return 0
 	}
 	return 0
 }
 
-func decode(inter *interfacing) uint {
+func (l *Lha) decode(inter *interfacing) uint {
 	var (
 		i, c            uint
 		dicsiz1, adjust uint
 		crc             uint
 	)
 
-	infile = inter.infile
-	outfile = inter.outfile
+	l.infile = inter.infile
+	l.outfile = inter.outfile
 	dicbit = uint16(inter.dicbit)
-	origsize = inter.original
-	compsize = inter.packed
+	l.origsize = inter.original
+	l.compsize = inter.packed
 
 	initializeCrc(&crc)
 	dicsiz = int(1) << dicbit
 	dtext = make([]byte, dicsiz)
 
-	if !ExtractBrokenArchive {
+	if !l.ExtractBrokenArchive {
 		for i := 0; i < len(dtext); i++ {
 			dtext[i] = ' '
 		}
@@ -136,18 +134,18 @@ func decode(inter *interfacing) uint {
 	   If the option "--extract-broken-archive" specified, extract
 	   the broken archive made by old LHa for UNIX. */
 
-	decodeMethodStart(inter.method)
+	l.decodeMethodStart(inter.method)
 	dicsiz1 = uint(dicsiz) - 1
 	adjust = 256 - uint(threshold)
 	if (inter.method == LarcMethodNum) || (inter.method == Pmarc2MethodNum) {
 		adjust = 256 - 2
 	}
 	decodeCount = 0
-	loc = 0
-	for decodeCount < origsize {
-		c = uint(decodeMethodC(inter.method))
+	l.loc = 0
+	for decodeCount < l.origsize {
+		c = uint(l.decodeMethodC(inter.method))
 		if c < 256 {
-			if DumpLzss {
+			if l.DumpLzss {
 				b := c
 				if !strconv.IsPrint(rune(c)) {
 					b = '?'
@@ -155,11 +153,11 @@ func decode(inter *interfacing) uint {
 				fmt.Printf("%d %02x(%c)\n", decodeCount, c, b)
 
 			}
-			dtext[loc] = byte(c)
-			loc++
-			if int(loc) == dicsiz {
-				fwriteCrc(&crc, dtext, dicsiz, &outfile)
-				loc = 0
+			dtext[l.loc] = byte(c)
+			l.loc++
+			if int(l.loc) == dicsiz {
+				l.fwriteCrc(&crc, dtext, dicsiz, &l.outfile)
+				l.loc = 0
 			}
 			decodeCount++
 		} else {
@@ -167,9 +165,9 @@ func decode(inter *interfacing) uint {
 			var matchpos uint
 
 			match.len = int(c - adjust)
-			match.off = uint(decodeMethodP(inter.method)) + 1
-			matchpos = (uint(loc) - match.off) & dicsiz1
-			if DumpLzss {
+			match.off = uint(l.decodeMethodP(inter.method)) + 1
+			matchpos = (uint(l.loc) - match.off) & dicsiz1
+			if l.DumpLzss {
 				fmt.Printf("%d <%d %d>\n",
 					decodeCount, match.len, decodeCount-int(match.off))
 			}
@@ -177,84 +175,84 @@ func decode(inter *interfacing) uint {
 			decodeCount += match.len
 			for i = 0; i < uint(match.len); i++ {
 				c = uint(dtext[(matchpos+i)&dicsiz1])
-				dtext[loc] = byte(c)
-				loc++
-				if int(loc) == dicsiz {
-					fwriteCrc(&crc, dtext, dicsiz, &outfile)
-					loc = 0
+				dtext[l.loc] = byte(c)
+				l.loc++
+				if int(l.loc) == dicsiz {
+					l.fwriteCrc(&crc, dtext, dicsiz, &l.outfile)
+					l.loc = 0
 				}
 			}
 		}
 	}
-	if loc != 0 {
-		fwriteCrc(&crc, dtext, int(loc), &outfile)
+	if l.loc != 0 {
+		l.fwriteCrc(&crc, dtext, int(l.loc), &l.outfile)
 	}
 	/* usually read size is interface->packed */
-	inter.readSize = inter.packed - compsize
+	inter.readSize = inter.packed - l.compsize
 
 	return crc
 }
 
-func encodeStart(method int) {
+func (l *Lha) encodeStart(method int) {
 	switch method {
 	case 0:
-		encodeStartFix()
+		l.encodeStartFix()
 	case 1:
-		encodeStartSt1()
+		l.encodeStartSt1()
 	case 2:
-		encodeStartSt1()
+		l.encodeStartSt1()
 	case 3:
-		encodeStartSt1()
+		l.encodeStartSt1()
 	case 4:
-		encodeStartSt1()
+		l.encodeStartSt1()
 	case 5:
-		encodeStartSt1()
+		l.encodeStartSt1()
 	case 6:
-		encodeStartSt1()
+		l.encodeStartSt1()
 	case 7:
-		encodeStartSt1()
+		l.encodeStartSt1()
 	}
 }
 
-func encodeEnd(method int) {
+func (l *Lha) encodeEnd(method int) {
 	switch method {
 	case 0:
-		encodeEndDyn()
+		l.encodeEndDyn()
 	case 1:
-		encodeEndSt1()
+		l.encodeEndSt1()
 	case 2:
-		encodeEndSt1()
+		l.encodeEndSt1()
 	case 3:
-		encodeEndSt1()
+		l.encodeEndSt1()
 	case 4:
-		encodeEndSt1()
+		l.encodeEndSt1()
 	case 5:
-		encodeEndSt1()
+		l.encodeEndSt1()
 	case 6:
-		encodeEndSt1()
+		l.encodeEndSt1()
 	case 7:
-		encodeEndSt1()
+		l.encodeEndSt1()
 	}
 }
 
-func encodeOuput(method int, code, pos uint16) {
+func (l *Lha) encodeOuput(method int, code, pos uint16) {
 	switch method {
 	case 0:
-		outputDyn(int(code), int(pos))
+		l.outputDyn(int(code), int(pos))
 	case 1:
-		outputSt1(code, pos)
+		l.outputSt1(code, pos)
 	case 2:
-		outputSt1(code, pos)
+		l.outputSt1(code, pos)
 	case 3:
-		outputSt1(code, pos)
+		l.outputSt1(code, pos)
 	case 4:
-		outputSt1(code, pos)
+		l.outputSt1(code, pos)
 	case 5:
-		outputSt1(code, pos)
+		l.outputSt1(code, pos)
 	case 6:
-		outputSt1(code, pos)
+		l.outputSt1(code, pos)
 	case 7:
-		outputSt1(code, pos)
+		l.outputSt1(code, pos)
 	}
 }
 
@@ -272,17 +270,17 @@ func nextHash(token, pos uint) uint {
 	return uint((uint16(token)<<5 ^ uint16(text[pos+2])) & uint16(hshsiz-1))
 }
 
-func updateDict(pos *uint, crc *uint) { /* update dictionary */
+func (l *Lha) updateDict(pos *uint, crc *uint) { /* update dictionary */
 	var i, j uint
 
 	copy(text[0:], text[dicsiz:txtsiz])
 
-	n, err := freadCrc(crc, &text, uint(txtsiz-dicsiz), dicsiz, infile)
+	n, err := l.freadCrc(crc, &text, uint(txtsiz-dicsiz), dicsiz, l.infile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "errot while freadCrc : %v\n", err)
 	}
 
-	remainder += uint(n)
+	l.remainder += uint(n)
 
 	*pos -= uint(dicsiz)
 	for i = 0; i < hshsiz; i++ {
@@ -302,16 +300,16 @@ func updateDict(pos *uint, crc *uint) { /* update dictionary */
 	}
 }
 
-func nextToken(token *uint, pos *uint, crc *uint) {
-	remainder--
+func (l *Lha) nextToken(token *uint, pos *uint, crc *uint) {
+	l.remainder--
 	*pos++
 	if *pos >= uint(txtsiz)-uint(maxmatch) {
-		updateDict(pos, crc)
+		l.updateDict(pos, crc)
 	}
 	*token = nextHash(*token, *pos)
 }
 
-func searchDict(token, pos uint, min int, m *matchdata) {
+func (l *Lha) searchDict(token, pos uint, min int, m *matchdata) {
 	/* search token */
 	/* position of token */
 	/* min. length of matching string */
@@ -337,32 +335,29 @@ func searchDict(token, pos uint, min int, m *matchdata) {
 		tok = token
 	}
 
-	searchDict1(tok, pos, off, max, m)
+	l.searchDict1(tok, pos, off, max, m)
 
 	if off > 0 && m.len < int(off)+3 {
 		/* re-search */
-		searchDict1(token, pos, 0, off+2, m)
+		l.searchDict1(token, pos, 0, off+2, m)
 	}
 
-	if m.len > int(remainder) {
-		m.len = int(remainder)
+	if m.len > int(l.remainder) {
+		m.len = int(l.remainder)
 	}
 }
 
-func searchDict1(token, pos, off, max uint, m *matchdata) {
+func (l *Lha) searchDict1(token, pos, off, max uint, m *matchdata) {
 	/* max. length of matching string */
 
 	var chain uint
 	var scanPos int = int(hash[token].pos)
 	var scanBeg int = scanPos - int(off)
 	var scanEnd = int(pos) - dicsiz
-	var l uint
+	var le uint
 
 	for scanBeg > 0 && scanBeg > scanEnd {
 		chain++
-		if remainder == 7634 {
-			fmt.Println("")
-		}
 		if text[int(scanBeg)+m.len] == text[int(pos)+m.len] {
 			{
 				var a, b int
@@ -371,15 +366,15 @@ func searchDict1(token, pos, off, max uint, m *matchdata) {
 				a = scanBeg
 				b = int(pos)
 
-				for l = 0; l < max && text[a] == text[b]; l++ {
+				for le = 0; le < max && text[a] == text[b]; le++ {
 					a++
 					b++
 				}
 			}
 
-			if int(l) > m.len {
+			if int(le) > m.len {
 				m.off = pos - uint(scanBeg)
-				m.len = int(l)
+				m.len = int(le)
 				if m.len == int(max) {
 					break
 				}
@@ -394,23 +389,23 @@ func searchDict1(token, pos, off, max uint, m *matchdata) {
 	}
 }
 
-func encode(inter *interfacing) (uint, error) {
+func (l *Lha) encode(inter *interfacing) (uint, error) {
 	var token, pos, crc uint
 	var count int
 	var match, last matchdata
 
-	infile = inter.infile
-	outfile = inter.outfile
-	origsize = inter.original
-	compsize = 0
+	l.infile = inter.infile
+	l.outfile = inter.outfile
+	l.origsize = inter.original
+	l.compsize = 0
 	count = 0
-	unpackable = false
+	l.unpackable = false
 
 	initializeCrc(&crc)
 
 	initSlide()
 
-	encodeStart(inter.method)
+	l.encodeStart(inter.method)
 
 	for i := 0; i < (txtsiz + 1); i++ {
 		text[i] = ' '
@@ -418,36 +413,36 @@ func encode(inter *interfacing) (uint, error) {
 	var err error
 	var v int
 
-	v, err = freadCrc(&crc, &text, uint(dicsiz), txtsiz-dicsiz, infile)
+	v, err = l.freadCrc(&crc, &text, uint(dicsiz), txtsiz-dicsiz, l.infile)
 	if err != nil {
 		return 0, err
 	}
-	remainder = uint(v)
+	l.remainder = uint(v)
 
 	match.len = threshold - 1
 	match.off = 0
-	if match.len > int(remainder) {
-		match.len = int(remainder)
+	if match.len > int(l.remainder) {
+		match.len = int(l.remainder)
 	}
 
 	pos = uint(dicsiz)
 	token = initHash(pos)
 	insertHash(token, pos) /* associate token and pos */
 
-	for remainder > 0 && !unpackable {
+	for l.remainder > 0 && !l.unpackable {
 		last = match
 
-		nextToken(&token, &pos, &crc)
-		searchDict(token, pos, last.len-1, &match)
+		l.nextToken(&token, &pos, &crc)
+		l.searchDict(token, pos, last.len-1, &match)
 		insertHash(token, pos)
 
 		if match.len > last.len || last.len < threshold {
 			/* output a letter */
-			encodeOuput(inter.method, uint16(text[pos-1]), 0)
+			l.encodeOuput(inter.method, uint16(text[pos-1]), 0)
 			count++
 		} else {
 			/* output length and offset */
-			encodeOuput(inter.method,
+			l.encodeOuput(inter.method,
 				uint16(last.len+(256-threshold)),
 				uint16((last.off-1)&uint(dicsiz-1)))
 
@@ -455,18 +450,18 @@ func encode(inter *interfacing) (uint, error) {
 
 			last.len -= 2
 			for last.len > 0 {
-				nextToken(&token, &pos, &crc)
+				l.nextToken(&token, &pos, &crc)
 				insertHash(token, pos)
 				last.len--
 			}
-			nextToken(&token, &pos, &crc)
-			searchDict(token, pos, threshold-1, &match)
+			l.nextToken(&token, &pos, &crc)
+			l.searchDict(token, pos, threshold-1, &match)
 			insertHash(token, pos)
 		}
 	}
-	encodeEnd(inter.method)
+	l.encodeEnd(inter.method)
 
-	inter.packed = compsize
+	inter.packed = l.compsize
 	inter.original = count
 
 	return crc, nil

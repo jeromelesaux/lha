@@ -2,6 +2,7 @@ package lha
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 )
@@ -276,8 +277,8 @@ func (l *Lha) updateDict(pos *uint, crc *uint) { /* update dictionary */
 	copy(text[0:], text[dicsiz:txtsiz])
 
 	n, err := l.freadCrc(crc, &text, uint(txtsiz-dicsiz), dicsiz, l.infile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "errot while freadCrc : %v\n", err)
+	if err != nil && io.EOF != err {
+		fmt.Fprintf(os.Stderr, "error while freadCrc : %v\n", err)
 	}
 
 	l.remainder += uint(n)

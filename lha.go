@@ -1,6 +1,9 @@
 package lha
 
-import "io"
+import (
+	"io"
+	"os"
+)
 
 type StringPool struct {
 	used   int
@@ -111,10 +114,27 @@ func (l *Lha) CompressBytes(filename string, body []byte, compressMethod int, he
 	l.CompressMethod = compressMethod
 	l.CmdFilev = append(l.CmdFilev, filename)
 	l.CmdFilec++
+	_, err = os.Stat(l.archiveName)
+	if err != nil && os.IsNotExist(err) {
+		l.newArchive = true
+	} else {
+		if !os.IsExist(err) {
+			return err
+		}
+	}
+
 	return compressStream(l.archiveName, body, l)
 }
 
 func (l *Lha) Compress(fileToAdd string, compressMethod int, headerLevel int) (err error) {
+	_, err = os.Stat(l.archiveName)
+	if err != nil && os.IsNotExist(err) {
+		l.newArchive = true
+	} else {
+		if !os.IsExist(err) {
+			return err
+		}
+	}
 	l.HeaderLevel = headerLevel
 	MakeCrcTable()
 	l.CompressMethod = compressMethod

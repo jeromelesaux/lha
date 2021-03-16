@@ -41,6 +41,24 @@ func TestDecompress(t *testing.T) {
 	}
 }
 
+func TestDecompressBytes(t *testing.T) {
+	v := NewLha(oldArchivename)
+	headers, err := v.Headers()
+	if err != nil {
+		t.Fatalf("error not expected :%v\n", err.Error())
+	}
+	if len(headers) != 1 {
+		t.Fatalf("expected 1 header and gets %d headers\n", len(headers))
+	}
+	d, err := v.DecompresBytes(headers[0])
+	if err != nil {
+		t.Fatalf("error not expected :%v\n", err.Error())
+	}
+	if len(d) == 0 {
+		t.Fatalf("error not expected an empty content\n")
+	}
+}
+
 func TestCompress(t *testing.T) {
 	os.Remove(newArchivename)
 	v2 := NewLha(newArchivename)

@@ -654,7 +654,7 @@ func (s *StreamFileInfo) Sys() interface{} {
 	return s.sys
 }
 
-func (l *Lha) appendStreamIt(name string, oafp *io.Reader, nafp *io.Writer, body []byte) (*io.Reader, error) {
+func (l *Lha) appendBytes(name string, oafp *io.Reader, nafp *io.Writer, body []byte) (*io.Reader, error) {
 	ahdr := NewLzHeader()
 	hdr := NewLzHeader()
 	var fp io.Reader
@@ -738,7 +738,7 @@ func (l *Lha) appendStreamIt(name string, oafp *io.Reader, nafp *io.Writer, body
 	if l.RecursiveArchiving { /* recursive call */
 		if findFiles(name, &filec, &filev, l) {
 			for i = 0; i < filec; i++ {
-				oafp, err = l.appendStreamIt(filev[i], oafp, nafp, body)
+				oafp, err = l.appendBytes(filev[i], oafp, nafp, body)
 				if err != nil {
 					return oafp, err
 				}
@@ -749,7 +749,7 @@ func (l *Lha) appendStreamIt(name string, oafp *io.Reader, nafp *io.Writer, body
 	return oafp, nil
 }
 
-func compressStream(archiveFilepath string, body []byte, l *Lha) error {
+func compressBytes(archiveFilepath string, body []byte, l *Lha) error {
 	l.archiveName = archiveFilepath
 	var ahdr = NewLzHeader()
 	var oafp io.Reader
@@ -843,12 +843,12 @@ func compressStream(archiveFilepath string, body []byte, l *Lha) error {
 				a := strings.ToUpper(l.ExcludeFiles[j])
 				b := strings.ToUpper(filepath.Base(l.CmdFilev[i]))
 				if a != b {
-					pf, _ := l.appendStreamIt(l.CmdFilev[i], &oafp, &nafp, body)
+					pf, _ := l.appendBytes(l.CmdFilev[i], &oafp, &nafp, body)
 					oafp = *pf
 				}
 			}
 		} else {
-			pf, _ := l.appendStreamIt(l.CmdFilev[i], &oafp, &nafp, body)
+			pf, _ := l.appendBytes(l.CmdFilev[i], &oafp, &nafp, body)
 			oafp = *pf
 		}
 
@@ -1053,6 +1053,66 @@ func CommadDelete(archiveFilepath string, l *Lha) error {
 	l.archiveName = archiveFilepath
 
 	return nil
+}
+
+func extractBytesWithHeader(header *LzHeader, l *Lha) ([]byte, error) {
+	hdr := NewLzHeader()
+	var pos int
+	var afp io.Reader
+	var outputData []byte
+
+	/* open archive file */
+	f, err := os.Open(l.archiveName)
+	if err != nil {
+		return outputData, fmt.Errorf("Cannot open archive file \"%s\"", l.archiveName)
+	}
+	afp = f
+
+	if archiveIsMsdosSfx1([]byte(l.archiveName)) {
+		hdr.SeekLhaHeader(&afp)
+	}
+
+	/* extract each files */
+	for {
+		err, hasHeader := hdr.GetHeader(&afp)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return outputData, err
+		}
+		if !hasHeader {
+			return outputData, nil
+		}
+		pos = 0
+
+		if string(hdr.Name) == string(header.Name) {
+			var readSize int
+			readSize, outputData, err = l.extractOneStream(&afp, hdr)
+			if err != nil {
+				return outputData, err
+			}
+			if readSize != hdr.PackedSize {
+				/* when error occurred in extract_one(), should adjust
+				   point of file stream */
+				if err := skipToNextpos(&afp, pos, hdr.PackedSize, readSize); err != nil {
+					return outputData, fmt.Errorf("Cannot seek to next header position from \"%s\"", hdr.Name)
+				}
+			}
+		} else {
+			if err := skipToNextpos(&afp, pos, hdr.PackedSize, 0); err == nil {
+				fmt.Fprintf(os.Stdout, "Cannot seek to next header position from \"%s\"", hdr.Name)
+			}
+		}
+	}
+
+	/* close archive file */
+	f.Close()
+
+	/* adjust directory information */
+	l.adjustDirinfo()
+
+	return outputData, nil
 }
 
 func extractWithHeader(header *LzHeader, l *Lha) error {
@@ -1316,6 +1376,58 @@ func symlinkWithMakePath(realname string, name string) int {
 	}
 
 	return lCode
+}
+
+func (l *Lha) extractOneStream(afp *io.Reader, hdr *LzHeader) (int, []byte, error) {
+	var fp io.Writer
+	name := make([]byte, FilenameLength)
+	var crc uint
+	var method int
+	var readSize int
+	var outputData bytes.Buffer
+	b := bufio.NewWriter(&outputData)
+	fp = b
+
+	/* LZHDIRS_METHODを持つヘッダをチェックする */
+	/* 1999.4.30 t.okamoto */
+	for method = 0; ; method++ {
+		if method >= len(methods) {
+			return readSize, outputData.Bytes(), fmt.Errorf("Unknown method \"%.*s\"; \"%s\" will be skipped", 5, hdr.Method, name)
+		}
+		if string(hdr.Method[:]) == methods[method] {
+			break
+		}
+	}
+
+	if (hdr.UnixMode&uint16(UnixFileTypemask)) == uint16(UnixFileRegular) && method != LzhdirsMethodNum {
+		//	extractRegular:
+		l.readingFilename = l.archiveName
+		l.writingFilename = string(name[:])
+
+		if l.Noexec {
+			return readSize, outputData.Bytes(), nil
+		}
+
+		crc = uint(l.DecodeLzhuf(
+			*afp,
+			fp,
+			hdr.OriginalSize,
+			hdr.PackedSize,
+			string(name[:]),
+			method,
+			&readSize))
+
+		return readSize, outputData.Bytes(), nil
+
+		if hdr.HasCrc && crc != hdr.Crc {
+			return 0, outputData.Bytes(), fmt.Errorf("CRC error: \"%s\"", name)
+		}
+	} else {
+		return 0, outputData.Bytes(), fmt.Errorf("cannot not stream directory content")
+	}
+
+	return readSize, outputData.Bytes(), nil
+
 }
 
 func (l *Lha) extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {

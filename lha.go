@@ -108,6 +108,12 @@ func (l *Lha) Decompress(header *LzHeader) (err error) {
 	return extractWithHeader(header, l)
 }
 
+func (l *Lha) DecompresBytes(header *LzHeader) ([]byte, error) {
+	l.HeaderLevel = 2
+	MakeCrcTable()
+	return extractBytesWithHeader(header, l)
+}
+
 func (l *Lha) CompressBytes(filename string, body []byte, compressMethod int, headerLevel int) (err error) {
 	l.HeaderLevel = headerLevel
 	MakeCrcTable()
@@ -123,7 +129,7 @@ func (l *Lha) CompressBytes(filename string, body []byte, compressMethod int, he
 		}
 	}
 
-	return compressStream(l.archiveName, body, l)
+	return compressBytes(l.archiveName, body, l)
 }
 
 func (l *Lha) Compress(fileToAdd string, compressMethod int, headerLevel int) (err error) {

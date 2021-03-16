@@ -57,14 +57,14 @@ func main() {
 	var globalError error
 	flag.Parse()
 
-	initVariable() /* Added N.Watazaki */
-
 	if *archiveNameOption == "" {
 		printVersion()
 		return
 	}
 
 	l = lha.NewLha(*archiveNameOption)
+
+	initVariable() /* Added N.Watazaki */
 
 	parseOption()
 	sortFiles()
@@ -173,10 +173,10 @@ func parseSubOption() {
 		switch *compressionmethod {
 		case 5:
 			l.CompressMethod = lha.Lzhuff5MethodNum
-		case '6':
+		case 6:
 			l.CompressMethod = lha.Lzhuff6MethodNum
 			break
-		case '7':
+		case 7:
 			l.CompressMethod = lha.Lzhuff7MethodNum
 		default:
 			fmt.Fprintf(os.Stderr, "invalid compression method 'o%d'", *compressionmethod)

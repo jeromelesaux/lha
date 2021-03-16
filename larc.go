@@ -1,5 +1,7 @@
 package lha
 
+import "io"
+
 /* ------------------------------------------------------------------------ */
 /* LHa for UNIX                                                             */
 /*              larc.c -- extra *.lzs                                       */
@@ -45,7 +47,12 @@ func (l *Lha) decodeCLz5( /*void*/ ) uint16 {
 	b := make([]byte, 1)
 	if l.flagcnt == 0 {
 		l.flagcnt = 8
-		l.infile.Read(b)
+		_, err := l.infile.Read(b)
+		if err != nil {
+			if err != io.ErrUnexpectedEOF {
+				return 0
+			}
+		}
 		l.mFlag = int(b[0])
 	}
 	l.flagcnt--
@@ -53,7 +60,12 @@ func (l *Lha) decodeCLz5( /*void*/ ) uint16 {
 	c = int(b[0])
 	if (l.mFlag & 1) == 0 {
 		l.matchpos = c
-		l.infile.Read(b)
+		_, err := l.infile.Read(b)
+		if err != nil {
+			if err != io.ErrUnexpectedEOF {
+				return 0
+			}
+		}
 		c = int(b[0]) //@TODO add EOF handler
 		l.matchpos += (c & 0xf0) << 4
 		c &= 0x0f

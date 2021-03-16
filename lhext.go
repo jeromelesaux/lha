@@ -2,6 +2,7 @@ package lha
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -620,6 +622,302 @@ func CommandAdd(archiveFilepath string, l *Lha) error {
 	return nil
 }
 
+type StreamFileInfo struct {
+	name    string
+	size    int64
+	modTime time.Time
+	isDir   bool
+	sys     *syscall.Stat_t
+}
+
+func (s *StreamFileInfo) Name() string {
+	return s.name
+}
+
+func (s *StreamFileInfo) Size() int64 {
+	return s.size
+}
+
+func (s *StreamFileInfo) ModTime() time.Time {
+	return s.modTime
+}
+
+func (s *StreamFileInfo) IsDir() bool {
+	return false
+}
+
+func (s *StreamFileInfo) Mode() os.FileMode {
+	return os.ModePerm
+}
+
+func (s *StreamFileInfo) Sys() interface{} {
+	return s.sys
+}
+
+func (l *Lha) appendStreamIt(name string, oafp *io.Reader, nafp *io.Writer, body []byte) (*io.Reader, error) {
+	ahdr := NewLzHeader()
+	hdr := NewLzHeader()
+	var fp io.Reader
+	var cmp int
+	var filec int
+	var filev []string
+	var i int
+	stbuf := &StreamFileInfo{
+		name:    name,
+		size:    int64(len(body)),
+		modTime: time.Now(),
+		sys:     &syscall.Stat_t{Gid: 100, Uid: 100, Mode: 33188},
+	}
+	var err error
+
+	fp = bytes.NewReader(body)
+	l.initHeader(name, stbuf, hdr) // @Todo fill stbuf
+
+	cmp = 0 /* avoid compiler warnings `uninitialized' */
+	for *oafp != nil {
+		var hasHeader bool
+		err, hasHeader = ahdr.GetHeader(oafp)
+		if !hasHeader {
+			break
+		}
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error while getting Lzheader error : %v\n", err.Error())
+		}
+
+		if !l.SortContents {
+			if !l.Noexec {
+				copyOldOne(oafp, nafp, ahdr, l)
+			} else {
+			}
+			cmp = -1 /* to be -1 always */
+			continue
+		}
+
+		if string(ahdr.Name) == string(hdr.Name) {
+			cmp = 0
+		}
+		if cmp < 0 { /* SKIP */
+			/* copy old to new */
+			if !l.Noexec {
+				copyOldOne(oafp, nafp, ahdr, l)
+			}
+
+		} else {
+			if cmp == 0 { /* REPLACE */
+				/* drop old archive's */
+
+				break
+			} else { /* cmp > 0, INSERT */
+				break
+			}
+		}
+	}
+
+	if err == nil || cmp > 0 { /* not in archive */
+		if l.Noexec {
+			fmt.Printf("ADD %s\n", name)
+		} else {
+			l.addOne(&fp, nafp, hdr)
+		}
+	} else { /* cmp == 0 */
+		if !l.UpdateIfNewer ||
+			ahdr.UnixLastModifiedStamp < hdr.UnixLastModifiedStamp {
+			/* newer than archive's */
+			if l.Noexec {
+				fmt.Printf("REPLACE %s\n", name)
+			} else {
+				l.addOne(&fp, nafp, hdr)
+			}
+		} else { /* copy old to new */
+			if !l.Noexec {
+				copyOldOne(oafp, nafp, ahdr, l)
+			}
+		}
+	}
+
+	if l.RecursiveArchiving { /* recursive call */
+		if findFiles(name, &filec, &filev, l) {
+			for i = 0; i < filec; i++ {
+				oafp, err = l.appendStreamIt(filev[i], oafp, nafp, body)
+				if err != nil {
+					return oafp, err
+				}
+			}
+			freeFiles(filec, &filev)
+		}
+	}
+	return oafp, nil
+}
+
+func compressStream(archiveFilepath string, body []byte, l *Lha) error {
+	l.archiveName = archiveFilepath
+	var ahdr = NewLzHeader()
+	var oafp io.Reader
+	var nafp io.Writer
+	var i int
+	//	var old_header int
+	var oldArchiveExist bool
+	var fw *os.File
+
+	l.mostRecent = 0
+
+	/* exit if no operation */
+	if !l.UpdateIfNewer && l.CmdFilec == 0 {
+		return fmt.Errorf("No files given in argument, do nothing")
+	}
+
+	/* open old archive if exist */
+	fr, err := openOldArchive(l)
+	if err != nil {
+		oldArchiveExist = false
+	} else {
+		oldArchiveExist = true
+		oafp = fr
+	}
+
+	if l.UpdateIfNewer && l.CmdFilec == 0 {
+		fmt.Printf("No files given in argument")
+		if err != nil {
+			return fmt.Errorf("archive file \"%s\" does not exists", l.archiveName)
+		}
+	}
+
+	if l.newArchive && oldArchiveExist {
+		fr.Close()
+	}
+
+	if fr != nil && archiveIsMsdosSfx1([]byte(l.archiveName)) {
+		buildStandardArchiveName(
+			l.newArchiveNameBuffer,
+			[]byte(l.archiveName),
+			len(l.archiveName))
+		l.newArchiveName = string(l.newArchiveNameBuffer)
+	} else {
+		l.newArchiveName = l.archiveName
+	}
+
+	/* build temporary file */
+	/* avoid compiler warnings `uninitialized' */
+	if !l.Noexec {
+		var err error
+		fw, err = buildTemporaryFile(l)
+		if err != nil {
+			return err
+		}
+		nafp = fw
+	}
+
+	/* find needed files when automatic update */
+	if l.UpdateIfNewer && l.CmdFilec == 0 {
+		findUpdateFiles(&oafp, l)
+	}
+
+	/* build new archive file */
+	/* cleaning arguments */
+	//cleaningFiles(&CmdFilec, &CmdFilev)
+	if l.CmdFilec == 0 {
+		fr.Close()
+		if !l.Noexec {
+			fw.Close()
+		}
+		return nil
+	}
+
+	for i = 0; i < l.CmdFilec; i++ {
+		var j int
+
+		if l.CmdFilev[i] == l.archiveName {
+			/* exclude target archive */
+			fmt.Printf("specified file \"%s\" is the generating archive. skip", l.CmdFilev[i])
+			for j = i; j < l.CmdFilec-1; j++ {
+				l.CmdFilev[j] = l.CmdFilev[j+1]
+			}
+			l.CmdFilec--
+			i--
+			continue
+		}
+
+		/* exclude files specified by -x option */
+		if len(l.ExcludeFiles) > 0 {
+			for j = 0; j < len(l.ExcludeFiles); j++ {
+				a := strings.ToUpper(l.ExcludeFiles[j])
+				b := strings.ToUpper(filepath.Base(l.CmdFilev[i]))
+				if a != b {
+					pf, _ := l.appendStreamIt(l.CmdFilev[i], &oafp, &nafp, body)
+					oafp = *pf
+				}
+			}
+		} else {
+			pf, _ := l.appendStreamIt(l.CmdFilev[i], &oafp, &nafp, body)
+			oafp = *pf
+		}
+
+	}
+
+	if fr != nil {
+		//	old_header = ftello(oafp)
+		for {
+			_, hasHeader := (*ahdr).GetHeader(&oafp)
+			if !hasHeader {
+				break
+			}
+			if !l.Noexec {
+				//fseeko(oafp, old_header, SEEK_SET)
+				copyOldOne(&oafp, &nafp, ahdr, l)
+			}
+			//	old_header = ftello(oafp)
+		}
+		fr.Close()
+	}
+
+	//newArchiveSize := 0 /* avoid compiler warnings `uninitialized' */
+	if !l.Noexec {
+		//	var tmp int
+
+		writeArchiveTail(&nafp)
+		//	tmp = ftello(nafp)
+		//	if tmp == -1 {
+		//		warning("ftello(): %s", strerror(errno))
+		//		new_archive_size = 0
+		//	} else {
+		//		new_archive_size = tmp
+		//	}
+		//	fclose(nafp)
+		fw.Close()
+	}
+
+	/* build backup archive file */
+	if oldArchiveExist && l.BackupOldArchive {
+		if err := buildBackupFile(l); err != nil {
+			fmt.Fprintf(os.Stderr, "error while buildBackupFile : %v\n", err.Error())
+		}
+	}
+
+	reportArchiveNameIfDifferent(l)
+
+	/* copy temporary file to new archive file */
+	if !l.Noexec {
+
+		if len(l.newArchiveName) >= 0 {
+			err := os.Rename(l.temporaryName, l.newArchiveName)
+			if err != nil {
+				return fmt.Errorf("error while renaming file error : %v", err.Error())
+				//	temporaryToNewArchiveFile(newArchiveSize)
+			}
+		}
+
+		/* set new archive file mode/group */
+		setArchiveFileMode()
+	}
+
+	/* remove archived files */
+	if l.DeleteAfterAppend {
+		removeFiles(l.CmdFilec, l.CmdFilev)
+	}
+
+	return nil
+}
+
 func Copy(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {
@@ -753,6 +1051,64 @@ func listHeader(l *Lha) {
 }
 func CommadDelete(archiveFilepath string, l *Lha) error {
 	l.archiveName = archiveFilepath
+
+	return nil
+}
+
+func extractWithHeader(header *LzHeader, l *Lha) error {
+	hdr := NewLzHeader()
+	var pos int
+	var afp io.Reader
+
+	/* open archive file */
+	f, err := os.Open(l.archiveName)
+	if err != nil {
+		return fmt.Errorf("Cannot open archive file \"%s\"", l.archiveName)
+	}
+	afp = f
+
+	if archiveIsMsdosSfx1([]byte(l.archiveName)) {
+		hdr.SeekLhaHeader(&afp)
+	}
+
+	/* extract each files */
+	for {
+		err, hasHeader := hdr.GetHeader(&afp)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		if !hasHeader {
+			return nil
+		}
+		pos = 0
+
+		if string(hdr.Name) == string(header.Name) {
+			readSize, err := l.extractOne(&afp, hdr)
+			if err != nil {
+				return err
+			}
+			if readSize != hdr.PackedSize {
+				/* when error occurred in extract_one(), should adjust
+				   point of file stream */
+				if err := skipToNextpos(&afp, pos, hdr.PackedSize, readSize); err != nil {
+					return fmt.Errorf("Cannot seek to next header position from \"%s\"", hdr.Name)
+				}
+			}
+		} else {
+			if err := skipToNextpos(&afp, pos, hdr.PackedSize, 0); err == nil {
+				fmt.Fprintf(os.Stdout, "Cannot seek to next header position from \"%s\"", hdr.Name)
+			}
+		}
+	}
+
+	/* close archive file */
+	f.Close()
+
+	/* adjust directory information */
+	l.adjustDirinfo()
 
 	return nil
 }

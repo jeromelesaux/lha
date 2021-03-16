@@ -54,6 +54,19 @@ type LzHeader struct {
 	Group                 []byte
 }
 
+func (hdr *LzHeader) String() string {
+	var info string
+	info += fmt.Sprintf("Name:%s\n", string(hdr.Name))
+	info += fmt.Sprintf("Realname:%s\n", string(hdr.Realname))
+	info += fmt.Sprintf("HeaderLevel:%d\n", hdr.HeaderLevel)
+	info += fmt.Sprintf("CompressLevel:%s\n", string(hdr.Method))
+	info += fmt.Sprintf("HasCrc:%v\n", hdr.HasCrc)
+	info += fmt.Sprintf("Crc:%.4x\n", hdr.Crc)
+	info += fmt.Sprintf("Original Size :%d bytes\n", hdr.OriginalSize)
+	info += fmt.Sprintf("Packed Size : %d bytes \n", hdr.PackedSize)
+	return info
+}
+
 func NewLzHeader() *LzHeader {
 	return &LzHeader{
 		Method:     make([]byte, methodTypeStorage),

@@ -94,7 +94,11 @@ func (l *Lha) initHeader(name string, vStat os.FileInfo, hdr *LzHeader) {
 	hdr.ExtendType = ExtendUnix
 	hdr.UnixLastModifiedStamp = vStat.ModTime().Unix()
 
-	info, _ := os.Stat(name)
+	info, err := os.Stat(name)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error while getting informations from %s: error :%v\n", name, err)
+		info = vStat
+	}
 	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
 		hdr.UnixUID = uint16(stat.Uid)
 		hdr.UnixGid = uint16(stat.Gid)
@@ -1234,6 +1238,7 @@ func (l *LzHeader) writeHeaderLevel0(data []byte, pathname []byte) int {
 	putByte(0x00) /* header size */
 	putByte(0x00) /* check sum */
 	putBytes(l.Method[:], 5)
+	putLongWord(unixToGenericStamp(l.UnixLastModifiedStamp))
 	putLongWord(l.PackedSize)
 	putLongWord(l.OriginalSize)
 	//putLongWord(unixToGenericStamp(l.unixLastModifiedStamp))
@@ -1241,7 +1246,7 @@ func (l *LzHeader) writeHeaderLevel0(data []byte, pathname []byte) int {
 	putByte(l.HeaderLevel) /* level 0 */
 
 	/* write pathname (level 0 header contains the directory part) */
-	nameLength = len(pathname)
+	nameLength = lengthOfStringInByte(pathname)
 	if GenericFormat {
 		limit = 255 - iGenericHeaderSize + 2
 	} else {

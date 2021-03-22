@@ -207,10 +207,8 @@ func getBytes(len, size int) ([]byte, int) {
 	buf := make([]byte, len)
 	var i int
 	for i = 0; i < len && i < size; i++ {
-		buf[i] = (*ptr)[getPtr]
-		getPtr++
+		buf[i] = getByte()
 	}
-
 	return buf, i
 }
 
@@ -507,7 +505,6 @@ func (l *LzHeader) getHeaderLevel0(fp *io.Reader, data []byte) (error, bool) {
 	}
 
 	l.Method, _ = getBytes(5, len(l.Method)) // sizeof
-
 	l.PackedSize = getLongword()
 	l.OriginalSize = getLongword()
 	l.UnixLastModifiedStamp = genericToUnixStamp(int64(getLongword()))
@@ -1238,9 +1235,10 @@ func (l *LzHeader) writeHeaderLevel0(data []byte, pathname []byte) int {
 	putByte(0x00) /* header size */
 	putByte(0x00) /* check sum */
 	putBytes(l.Method[:], 5)
-	putLongWord(unixToGenericStamp(l.UnixLastModifiedStamp))
+
 	putLongWord(l.PackedSize)
 	putLongWord(l.OriginalSize)
+	putLongWord(unixToGenericStamp(l.UnixLastModifiedStamp))
 	//putLongWord(unixToGenericStamp(l.unixLastModifiedStamp))
 	putByte(l.Attribute)
 	putByte(l.HeaderLevel) /* level 0 */

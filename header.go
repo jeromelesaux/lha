@@ -103,7 +103,7 @@ func (l *Lha) initHeader(name string, vStat os.FileInfo, hdr *LzHeader) {
 	// but maybe you want to log warnings
 	hdr.UnixUID = uint16(os.Geteuid())
 	hdr.UnixGid = uint16(os.Getgid())
-	hdr.UnixMode = uint16(info.Mode().Perm())
+	hdr.UnixMode = uint16(info.Mode().Perm()) + 33000
 
 	if vStat.IsDir() {
 		copy(hdr.Method, []byte(LzhdirsMethod))

@@ -34,5 +34,4 @@ func finishIndicator2(name, msg string, pcnt int) {
 		pcnt = 100
 	}
 	fmt.Printf("%s\n", msg)
-	return
 }

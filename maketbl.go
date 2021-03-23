@@ -25,7 +25,7 @@ func makeTable(nchar int16, bitlen *[]byte, tablebits int16, table *[]uint16) er
 	for i = 0; i < uint(nchar); i++ {
 		if (*bitlen)[i] > 16 {
 			/* CVE-2006-4335 */
-			return fmt.Errorf("Bad table (case a)")
+			return fmt.Errorf("bad table (case a)")
 
 		} else {
 			count[(*bitlen)[i]]++
@@ -75,7 +75,7 @@ func makeTable(nchar int16, bitlen *[]byte, tablebits int16, table *[]uint16) er
 			i = uint(start[k])
 			if (i >> m) > 4096 {
 				/* CVE-2006-4337 */
-				return fmt.Errorf("Bad table (case c)")
+				return fmt.Errorf("bad table (case c)")
 			}
 			p = int(i) >> m
 			i <<= tablebits

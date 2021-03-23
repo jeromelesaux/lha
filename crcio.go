@@ -71,9 +71,7 @@ func (l *Lha) freadCrc(crcp *uint, p *[]byte, pindex uint, n int, fp io.Reader) 
 func (l *Lha) freadTxt(vp *[]byte, pindex uint, n int, fp io.Reader) (int, error) {
 	var c byte
 	var cnt int
-	var p *[]byte
-
-	p = vp
+	var p *[]byte = vp
 
 	for cnt < n {
 		if getcEucCache != EOF {
@@ -108,7 +106,7 @@ func (l *Lha) fwriteCrc(crcp *uint, p []byte, n int, fp *io.Writer) error {
 	}
 	_, err := (*fp).Write(p)
 	if err != nil {
-		return fmt.Errorf("File write error :%v", err.Error())
+		return fmt.Errorf("file write error :%v", err.Error())
 	}
 	return nil
 }

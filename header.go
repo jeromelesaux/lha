@@ -7,7 +7,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"time"
 	"unicode"
@@ -99,17 +98,12 @@ func (l *Lha) initHeader(name string, vStat os.FileInfo, hdr *LzHeader) {
 		fmt.Fprintf(os.Stderr, "Error while getting informations from %s: error :%v\n", name, err)
 		info = vStat
 	}
-	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
-		hdr.UnixUID = uint16(stat.Uid)
-		hdr.UnixGid = uint16(stat.Gid)
-		hdr.UnixMode = uint16(stat.Mode)
-	} else {
-		// we are not in linux, this won't work anyway in windows,
-		// but maybe you want to log warnings
-		hdr.UnixUID = uint16(os.Geteuid())
-		hdr.UnixGid = uint16(os.Getgid())
-		hdr.UnixMode = uint16(vStat.Mode().Perm())
-	}
+
+	// we are not in linux, this won't work anyway in windows,
+	// but maybe you want to log warnings
+	hdr.UnixUID = uint16(os.Geteuid())
+	hdr.UnixGid = uint16(os.Getgid())
+	hdr.UnixMode = uint16(info.Mode().Perm())
 
 	if vStat.IsDir() {
 		copy(hdr.Method, []byte(LzhdirsMethod))
@@ -118,6 +112,7 @@ func (l *Lha) initHeader(name string, vStat os.FileInfo, hdr *LzHeader) {
 		if name[len(name)-1] != '/' {
 			name += "/"
 		}
+		hdr.UnixMode += 40000
 	}
 	if vStat.Mode()&os.ModeSymlink != 0 {
 		copy(hdr.Method, []byte(LzhdirsMethod))
@@ -130,7 +125,7 @@ func (l *Lha) initHeader(name string, vStat os.FileInfo, hdr *LzHeader) {
 			fmt.Fprintf(os.Stderr, "error while reading symlink error : %v\n", err.Error())
 		}
 	}
-	return
+
 }
 
 func calcSum(p *[]byte, start, len int) int {
@@ -164,7 +159,6 @@ func dumpSkipBytes(len int) {
 	} else {
 		skipBytes(len)
 	}
-	return
 }
 
 func getWord() int {
@@ -240,8 +234,7 @@ func setupPut(p *[]byte, index int) {
 
 func unixToGenericStamp(t int64) int {
 	tm := time.Unix(t, 0)
-	var us int
-	us = ((tm.Year() - 80) << 25) +
+	us := ((tm.Year() - 80) << 25) +
 		(int(tm.Month()) << 21) +
 		(tm.Day() << 16) +
 		(tm.Hour() << 11) +
@@ -312,11 +305,11 @@ func (l *LzHeader) getExtendedHeader(fp *io.Reader, headerSize int, hcrc *uint) 
 	for l.HeaderSize != 0 {
 		setupGet(&data, 0, len(data))
 		if len(data) < l.HeaderSize {
-			return fmt.Errorf("header size (%d) too large.", l.HeaderSize), 0
+			return fmt.Errorf("header size (%d) too large", l.HeaderSize), 0
 		}
 		nb, err := (*fp).Read(data[:l.HeaderSize])
 		if err != nil || nb == 0 {
-			return fmt.Errorf("Invalid header (LHA file ?)"), 0
+			return fmt.Errorf("invalid header (LHA file ?)"), 0
 		}
 		extType = int(getByte())
 		switch extType {
@@ -491,17 +484,17 @@ func (l *LzHeader) getHeaderLevel0(fp *io.Reader, data []byte) (error, bool) {
 	So we must read the remaining header size by the headerSize. */
 	remainSize = headerSize + 2 - commonHeaderSize
 	if remainSize <= 0 {
-		return fmt.Errorf("Invalid header size (LHarc file ?)"), false
+		return fmt.Errorf("invalid header size (LHarc file ?)"), false
 
 	}
 	nb, err := (*fp).Read(data[commonHeaderSize : commonHeaderSize+remainSize])
 
 	if err != nil || nb == 0 {
-		return fmt.Errorf("Invalid header (LHarc file ?)"), false
+		return fmt.Errorf("invalid header (LHarc file ?)"), false
 	}
 
 	if calcSum(&data, iMethod, headerSize) != checksum {
-		return fmt.Errorf("Checksum error (LHarc file?)"), false
+		return fmt.Errorf("checksum error (LHarc file?)"), false
 	}
 
 	l.Method, _ = getBytes(5, len(l.Method)) // sizeof
@@ -530,7 +523,7 @@ func (l *LzHeader) getHeaderLevel0(fp *io.Reader, data []byte) (error, bool) {
 			return nil, true
 		}
 
-		return fmt.Errorf("Unkonwn header (lha file?)"), false
+		return fmt.Errorf("unkonwn header (lha file?)"), false
 	}
 
 	l.HasCrc = true
@@ -611,15 +604,15 @@ func (l *LzHeader) getHeaderLevel1(fp *io.Reader, data []byte) (err error, ok bo
 	So we must read the remaining header size by the headerSize. */
 	remainSize = headerSize + 2 - commonHeaderSize
 	if remainSize <= 0 {
-		return fmt.Errorf("Invalid header size (LHarc file ?)"), false
+		return fmt.Errorf("invalid header size (LHarc file ?)"), false
 	}
 	nb, err := (*fp).Read(data[commonHeaderSize : commonHeaderSize+remainSize])
 	if err != nil || nb == 0 {
-		return fmt.Errorf("Invalid header (LHarc file ?)"), false
+		return fmt.Errorf("invalid header (LHarc file ?)"), false
 	}
 
 	if calcSum(&data, iMethod, headerSize) != checksum {
-		return fmt.Errorf("Checksum error (LHarc file?)"), false
+		return fmt.Errorf("checksum error (LHarc file?)"), false
 	}
 
 	l.Method, _ = getBytes(5, len(l.Method)) //sizeof(l.method)
@@ -709,11 +702,11 @@ func (l *LzHeader) getHeaderLevel2(fp *io.Reader, data []byte) (error, bool) {
 	So we must read the remaining header size without ext-header. */
 	remainSize = headerSize - iLevel2HeaderSize
 	if remainSize < 0 {
-		return fmt.Errorf("Invalid header size (LHarc file ?)"), false
+		return fmt.Errorf("invalid header size (LHarc file ?)"), false
 	}
 	n, err := (*fp).Read(data[commonHeaderSize : commonHeaderSize+(iLevel2HeaderSize-commonHeaderSize)])
 	if err != nil || n == 0 {
-		return fmt.Errorf("Invalid header (LHarc file ?)"), false
+		return fmt.Errorf("invalid header (LHarc file ?)"), false
 	}
 
 	l.Method, _ = getBytes(5, len(l.Method)) // sizeof(l.method)
@@ -744,7 +737,7 @@ func (l *LzHeader) getHeaderLevel2(fp *io.Reader, data []byte) (error, bool) {
 	padding = headerSize - iLevel2HeaderSize - extendSize
 	/* padding should be 0 or 1 */
 	if padding != 0 && padding != 1 {
-		return fmt.Errorf("Invalid header size (padding: %d)", padding), false
+		return fmt.Errorf("invalid header size (padding: %d)", padding), false
 	}
 	padding--
 	for padding != 0 {
@@ -800,7 +793,7 @@ func (l *LzHeader) getHeaderLevel3(fp *io.Reader, data []byte) (error, bool) {
 	l.SizeFieldLength = getWord()
 	nb, err := (*fp).Read(data[commonHeaderSize : commonHeaderSize+iLevel3HeaderSize-commonHeaderSize])
 	if err != nil || nb == 0 {
-		return fmt.Errorf("Invalid header (LHarc file ?)"), false
+		return fmt.Errorf("invalid header (LHarc file ?)"), false
 	}
 
 	l.Method, _ = getBytes(5, len(l.Method)) //sizeof(l.method)
@@ -822,7 +815,7 @@ func (l *LzHeader) getHeaderLevel3(fp *io.Reader, data []byte) (error, bool) {
 	headerSize = l.HeaderSize
 	remainSize = headerSize - iLevel3HeaderSize
 	if remainSize < 0 {
-		return fmt.Errorf("Invalid header size (LHarc file ?)"), false
+		return fmt.Errorf("invalid header size (LHarc file ?)"), false
 	}
 	extendSize = getLongword()
 
@@ -837,7 +830,7 @@ func (l *LzHeader) getHeaderLevel3(fp *io.Reader, data []byte) (error, bool) {
 	padding = remainSize - extendSize
 	/* padding should be 0 */
 	if padding != 0 {
-		return fmt.Errorf("Invalid header size (padding: %d)", padding), false
+		return fmt.Errorf("invalid header size (padding: %d)", padding), false
 	}
 
 	if l.HeaderCrc != hcrc {
@@ -870,32 +863,32 @@ func (l *LzHeader) GetHeader(fp *io.Reader) (error, bool) {
 
 	nb, err = (*fp).Read(data[1:commonHeaderSize])
 	if err != nil || nb == 0 {
-		return fmt.Errorf("Invalid header (LHarc file ?)"), false
+		return fmt.Errorf("invalid header (LHarc file ?)"), false
 	}
 
 	switch data[iHeaderLevel] {
 	case 0:
 		err, header := l.getHeaderLevel0(fp, data[:])
-		if err != nil || header == false {
+		if err != nil || !header {
 			return err, false
 		}
 	case 1:
 		err, header := l.getHeaderLevel1(fp, data[:])
-		if err != nil || header == false {
+		if err != nil || !header {
 			return err, false
 		}
 	case 2:
 		err, header := l.getHeaderLevel2(fp, data[:])
-		if err != nil || header == false {
+		if err != nil || !header {
 			return err, false
 		}
 	case 3:
 		err, header := l.getHeaderLevel3(fp, data[:])
-		if err != nil || header == false {
+		if err != nil || !header {
 			return err, false
 		}
 	default:
-		return fmt.Errorf("Unknown level header (level %d)", data[iHeaderLevel]), false
+		return fmt.Errorf("unknown level header (level %d)", data[iHeaderLevel]), false
 	}
 
 	/* filename conversion */
@@ -1090,11 +1083,9 @@ func (l LzHeader) initHeader(name string, headerLevel byte, fileinfo os.FileInfo
 	l.UnixLastModifiedStamp = fileinfo.ModTime().Local().Unix()
 	/* since 00:00:00 JAN.1.1970 */
 	l.UnixMode = uint16(fileinfo.Mode())
-	if stat, ok := fileinfo.Sys().(*syscall.Stat_t); ok {
-		l.UnixUID = uint16(stat.Uid)
-		l.UnixGid = uint16(stat.Gid)
-		l.UnixMode = stat.Mode
-	}
+	l.UnixUID = uint16(os.Geteuid())
+	l.UnixGid = uint16(os.Getgid())
+
 	if fileinfo.IsDir() {
 		copy(l.Method[:], LzhdirsMethod)
 		l.Attribute = genericDirectoryAttribute
@@ -1173,21 +1164,18 @@ func WriteHeader(fp *io.Writer, hdr *LzHeader) error {
 	switch hdr.HeaderLevel {
 	case 0:
 		headerSize = hdr.writeHeaderLevel0(data, pathname)
-		break
 	case 1:
 		headerSize = hdr.writeHeaderLevel1(data, pathname)
-		break
 	case 2:
 		headerSize = hdr.writeHeaderLevel2(data, pathname)
-		break
 	default:
-		return fmt.Errorf("Unknown level header (level %d)", hdr.HeaderLevel)
+		return fmt.Errorf("unknown level header (level %d)", hdr.HeaderLevel)
 
 	}
 
 	_, err := (*fp).Write(data[:headerSize])
 	if err != nil {
-		return fmt.Errorf("Cannot write to temporary file error :%v", err.Error())
+		return fmt.Errorf("cannot write to temporary file error :%v", err.Error())
 	}
 	return nil
 }
@@ -1498,8 +1486,7 @@ func (l *LzHeader) writeHeader(fp *io.Writer) int {
 	}
 
 	if (l.UnixMode & uint16(UnixFileSymlink)) == uint16(UnixFileSymlink) {
-		var p int
-		p = strings.Index(string(l.Name[:]), "|")
+		var p int = strings.Index(string(l.Name[:]), "|")
 
 		if p != -1 {
 			fmt.Fprintf(os.Stderr, "symlink name \"%s\" contains '|' char. change it into '_'", l.Name)

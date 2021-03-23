@@ -72,7 +72,6 @@ func (l *Lha) decodeMethodP(method int) uint16 {
 	default:
 		return 0
 	}
-	return 0
 }
 
 func (l *Lha) decodeMethodC(method int) uint16 {
@@ -100,7 +99,6 @@ func (l *Lha) decodeMethodC(method int) uint16 {
 	default:
 		return 0
 	}
-	return 0
 }
 
 func (l *Lha) decode(inter *interfacing) uint {

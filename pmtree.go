@@ -130,7 +130,7 @@ func treeRebuild(t *tree,
 
 		for i = 0; i < int(bound); i++ {
 			if table[i] > maxdepth {
-				return fmt.Errorf("Bad table")
+				return fmt.Errorf("bad table")
 			}
 			count[table[i]]++
 		}
@@ -138,13 +138,13 @@ func treeRebuild(t *tree,
 		for i = int(mindepth); i <= int(maxdepth); i++ {
 			var max_leaves uint = (1 << i)
 			if count[i] > max_leaves {
-				return fmt.Errorf("Bad table")
+				return fmt.Errorf("bad table")
 			}
 			total += 1.0 / float64(max_leaves) * float64(count[i])
 		}
 		if total != 1.0 {
 			/* check the Kraft's inequality */
-			return fmt.Errorf("Bad table")
+			return fmt.Errorf("bad table")
 		}
 	}
 
@@ -210,5 +210,5 @@ func treeRebuild(t *tree,
 	}
 
 	/* unreachable */
-	return fmt.Errorf("Bad table")
+	return fmt.Errorf("bad table")
 }

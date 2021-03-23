@@ -86,8 +86,7 @@ func (l *Lha) Headers() (headers []*LzHeader, err error) {
 		return headers, err
 	}
 	defer fr.Close()
-	var or io.Reader
-	or = fr
+	var or io.Reader = fr
 	for {
 		h := NewLzHeader()
 		err, hasHeader := h.GetHeader(&or)

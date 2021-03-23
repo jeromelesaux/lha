@@ -40,9 +40,8 @@ func (l *Lha) fillbuf(n byte) error { /* Shift bitbuf n bits left, read n bits *
 }
 
 func (l *Lha) getbits(n byte) uint16 {
-	var x uint16
+	var x uint16 = l.bitbuf >> (2*charBit - n)
 
-	x = l.bitbuf >> (2*charBit - n)
 	err := l.fillbuf(n)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "fillbuf error :%v\n", err.Error())
@@ -63,7 +62,7 @@ func (l *Lha) putcode(n byte, x uint16) error { /* Write leftmost n bits of x */
 			b = append(b, l.subbitbuf)
 			_, err := l.outfile.Write(b)
 			if err != nil {
-				return fmt.Errorf("Write error in bitio.c(putcode)")
+				return fmt.Errorf("write error in bitio.c(putcode)")
 			}
 			l.compsize++
 		} else {

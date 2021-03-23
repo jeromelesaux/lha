@@ -26,9 +26,7 @@ func (l *Lha) decodeStartSt0( /*void*/ ) {
 
 /* ------------------------------------------------------------------------ */
 func (l *Lha) encodePSt0(j uint16) {
-	var i uint16
-
-	i = j >> 6
+	var i uint16 = j >> 6
 	l.putcode(ptLen[i], ptCode[i])
 	l.putbits(6, j&0x3f)
 }

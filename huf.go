@@ -515,15 +515,12 @@ func (l *Lha) decodeStartSt1( /* void */ ) {
 	case lzhuff5Dicbit:
 		pbit = 4
 		np = uint(lzhuff5Dicbit) + 1
-		break
 	case lzhuff6Dicbit:
 		pbit = 5
 		np = uint(lzhuff6Dicbit) + 1
-		break
 	case lzhuff7Dicbit:
 		pbit = 5
 		np = uint(lzhuff7Dicbit) + 1
-		break
 	default:
 		fmt.Fprintf(os.Stderr, "Cannot use %d bytes dictionary", 1<<dicbit)
 	}

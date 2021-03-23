@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -358,7 +357,7 @@ func (l *Lha) appendIt(name string, oafp *io.Reader, nafp *io.Writer) (*io.Reade
 
 	stbuf, err = os.Lstat(name)
 	if err != nil {
-		return oafp, fmt.Errorf("Cannot access file \"%s\" error :%v", name, err.Error())
+		return oafp, fmt.Errorf("cannot access file \"%s\" error :%v", name, err.Error())
 	}
 
 	directory = stbuf.IsDir()
@@ -367,7 +366,7 @@ func (l *Lha) appendIt(name string, oafp *io.Reader, nafp *io.Writer) (*io.Reade
 	if !directory && !symlink && !l.Noexec {
 		fp, err = os.Open(name)
 		if err != nil {
-			return oafp, fmt.Errorf("Cannot open file \"%s\": %s", name, err.Error())
+			return oafp, fmt.Errorf("cannot open file \"%s\": %s", name, err.Error())
 		}
 	}
 
@@ -387,7 +386,6 @@ func (l *Lha) appendIt(name string, oafp *io.Reader, nafp *io.Writer) (*io.Reade
 		if !l.SortContents {
 			if !l.Noexec {
 				copyOldOne(oafp, nafp, ahdr, l)
-			} else {
 			}
 			cmp = -1 /* to be -1 always */
 			continue
@@ -467,7 +465,7 @@ func CommandAdd(archiveFilepath string, l *Lha) error {
 
 	/* exit if no operation */
 	if !l.UpdateIfNewer && l.CmdFilec == 0 {
-		return fmt.Errorf("No files given in argument, do nothing")
+		return fmt.Errorf("no files given in argument, do nothing")
 	}
 
 	/* open old archive if exist */
@@ -627,7 +625,6 @@ type StreamFileInfo struct {
 	size    int64
 	modTime time.Time
 	isDir   bool
-	sys     *syscall.Stat_t
 }
 
 func (s *StreamFileInfo) Name() string {
@@ -651,7 +648,7 @@ func (s *StreamFileInfo) Mode() os.FileMode {
 }
 
 func (s *StreamFileInfo) Sys() interface{} {
-	return s.sys
+	return nil
 }
 
 func (l *Lha) appendBytes(name string, oafp *io.Reader, nafp *io.Writer, body []byte) (*io.Reader, error) {
@@ -666,7 +663,7 @@ func (l *Lha) appendBytes(name string, oafp *io.Reader, nafp *io.Writer, body []
 		name:    name,
 		size:    int64(len(body)),
 		modTime: time.Now(),
-		sys:     &syscall.Stat_t{Gid: 100, Uid: 100, Mode: 33188},
+		//sys:     &syscall.Stat_t{Gid: 100, Uid: 100, Mode: 33188},
 	}
 	var err error
 
@@ -687,7 +684,6 @@ func (l *Lha) appendBytes(name string, oafp *io.Reader, nafp *io.Writer, body []
 		if !l.SortContents {
 			if !l.Noexec {
 				copyOldOne(oafp, nafp, ahdr, l)
-			} else {
 			}
 			cmp = -1 /* to be -1 always */
 			continue
@@ -763,7 +759,7 @@ func compressBytes(archiveFilepath string, body []byte, l *Lha) error {
 
 	/* exit if no operation */
 	if !l.UpdateIfNewer && l.CmdFilec == 0 {
-		return fmt.Errorf("No files given in argument, do nothing")
+		return fmt.Errorf("no files given in argument, do nothing")
 	}
 
 	/* open old archive if exist */
@@ -776,7 +772,7 @@ func compressBytes(archiveFilepath string, body []byte, l *Lha) error {
 	}
 
 	if l.UpdateIfNewer && l.CmdFilec == 0 {
-		fmt.Printf("No files given in argument")
+		fmt.Printf("no files given in argument")
 		if err != nil {
 			return fmt.Errorf("archive file \"%s\" does not exists", l.archiveName)
 		}
@@ -958,7 +954,7 @@ func CommandList(archiveFilepath string, l *Lha) error {
 	/* open archive file */
 	f, err := os.Open(l.archiveName)
 	if err != nil {
-		return fmt.Errorf("Cannot open archive \"%s\"", l.archiveName)
+		return fmt.Errorf("cannot open archive \"%s\"", l.archiveName)
 	}
 	afp = f
 
@@ -1064,7 +1060,7 @@ func extractBytesWithHeader(header *LzHeader, l *Lha) ([]byte, error) {
 	/* open archive file */
 	f, err := os.Open(l.archiveName)
 	if err != nil {
-		return outputData, fmt.Errorf("Cannot open archive file \"%s\"", l.archiveName)
+		return outputData, fmt.Errorf("cannot open archive file \"%s\"", l.archiveName)
 	}
 	afp = f
 
@@ -1096,7 +1092,7 @@ func extractBytesWithHeader(header *LzHeader, l *Lha) ([]byte, error) {
 				/* when error occurred in extract_one(), should adjust
 				   point of file stream */
 				if err := skipToNextpos(&afp, pos, hdr.PackedSize, readSize); err != nil {
-					return outputData, fmt.Errorf("Cannot seek to next header position from \"%s\"", hdr.Name)
+					return outputData, fmt.Errorf("cannot seek to next header position from \"%s\"", hdr.Name)
 				}
 			}
 		} else {
@@ -1123,7 +1119,7 @@ func extractWithHeader(header *LzHeader, l *Lha) error {
 	/* open archive file */
 	f, err := os.Open(l.archiveName)
 	if err != nil {
-		return fmt.Errorf("Cannot open archive file \"%s\"", l.archiveName)
+		return fmt.Errorf("cannot open archive file \"%s\"", l.archiveName)
 	}
 	afp = f
 
@@ -1154,7 +1150,7 @@ func extractWithHeader(header *LzHeader, l *Lha) error {
 				/* when error occurred in extract_one(), should adjust
 				   point of file stream */
 				if err := skipToNextpos(&afp, pos, hdr.PackedSize, readSize); err != nil {
-					return fmt.Errorf("Cannot seek to next header position from \"%s\"", hdr.Name)
+					return fmt.Errorf("cannot seek to next header position from \"%s\"", hdr.Name)
 				}
 			}
 		} else {
@@ -1184,7 +1180,7 @@ func CommandExtract(archiveFilepath string, l *Lha) error {
 	/* open archive file */
 	f, err := os.Open(l.archiveName)
 	if err != nil {
-		return fmt.Errorf("Cannot open archive file \"%s\"", l.archiveName)
+		return fmt.Errorf("cannot open archive file \"%s\"", l.archiveName)
 	}
 	afp = f
 
@@ -1214,7 +1210,7 @@ func CommandExtract(archiveFilepath string, l *Lha) error {
 				/* when error occurred in extract_one(), should adjust
 				   point of file stream */
 				if err := skipToNextpos(&afp, pos, hdr.PackedSize, readSize); err != nil {
-					return fmt.Errorf("Cannot seek to next header position from \"%s\"", hdr.Name)
+					return fmt.Errorf("cannot seek to next header position from \"%s\"", hdr.Name)
 				}
 			}
 		} else {
@@ -1332,7 +1328,7 @@ func makeParentPath(name string) (bool, error) {
 func openWithMakePath(name string) (io.Writer, error) {
 	f, err := os.Create(name)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot extract a file \"%s\"", name)
+		return nil, fmt.Errorf("cannot extract a file \"%s\"", name)
 	}
 
 	return f, nil
@@ -1392,7 +1388,7 @@ func (l *Lha) extractOneStream(afp *io.Reader, hdr *LzHeader) (int, []byte, erro
 	/* 1999.4.30 t.okamoto */
 	for method = 0; ; method++ {
 		if method >= len(methods) {
-			return readSize, outputData.Bytes(), fmt.Errorf("Unknown method \"%.*s\"; \"%s\" will be skipped", 5, hdr.Method, name)
+			return readSize, outputData.Bytes(), fmt.Errorf("unknown method \"%.*s\"; \"%s\" will be skipped", 5, hdr.Method, name)
 		}
 		if string(hdr.Method[:]) == methods[method] {
 			break
@@ -1417,16 +1413,13 @@ func (l *Lha) extractOneStream(afp *io.Reader, hdr *LzHeader) (int, []byte, erro
 			method,
 			&readSize))
 
-		return readSize, outputData.Bytes(), nil
-
 		if hdr.HasCrc && crc != hdr.Crc {
 			return 0, outputData.Bytes(), fmt.Errorf("CRC error: \"%s\"", name)
 		}
+		return readSize, outputData.Bytes(), nil
 	} else {
 		return 0, outputData.Bytes(), fmt.Errorf("cannot not stream directory content")
 	}
-
-	return readSize, outputData.Bytes(), nil
 
 }
 
@@ -1449,7 +1442,7 @@ func (l *Lha) extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 	} else {
 
 		if isDirectoryTraversal(string(hdr.Name[p:])) {
-			return 0, fmt.Errorf("Possible directory traversal hack attempt in %s", hdr.Name[p:])
+			return 0, fmt.Errorf("possible directory traversal hack attempt in %s", hdr.Name[p:])
 		}
 
 		if hdr.Name[p] == '/' {
@@ -1477,14 +1470,14 @@ func (l *Lha) extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 	}
 	ok, name, err := makeNameWithPathcheck(string(name[:]), len(name), string(hdr.Name[p:]), l)
 	if err != nil || !ok {
-		return 0, fmt.Errorf("Possible symlink traversal hack attempt in %s", q)
+		return 0, fmt.Errorf("possible symlink traversal hack attempt in %s", q)
 	}
 
 	/* LZHDIRS_METHODを持つヘッダをチェックする */
 	/* 1999.4.30 t.okamoto */
 	for method = 0; ; method++ {
 		if method >= len(methods) {
-			return readSize, fmt.Errorf("Unknown method \"%.*s\"; \"%s\" will be skipped", 5, hdr.Method, name)
+			return readSize, fmt.Errorf("unknown method \"%.*s\"; \"%s\" will be skipped", 5, hdr.Method, name)
 		}
 		if string(hdr.Method[:]) == methods[method] {
 			break
@@ -1533,21 +1526,21 @@ func (l *Lha) extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 			Quiet = saveQuiet
 			l.Verbose = saveVerbose
 		} else {
-			if l.skipFlg == false {
+			if !l.skipFlg {
 
 				upFlag, _ = inquireExtract(string(name[:]), l)
-				if upFlag == false && l.Force == false {
+				if !upFlag && !l.Force {
 					return readSize, nil
 				}
 			}
 
-			if l.skipFlg == true {
+			if l.skipFlg {
 				_, err := os.Lstat(string(name[:]))
 				if err != nil && os.IsExist(err) {
 					return 0, err
 				}
-				if l.Force != true {
-					if Quiet != true {
+				if !l.Force {
+					if !Quiet {
 						fmt.Fprintf(os.Stderr, "%s : Skipped...\n", string(name[:]))
 					}
 					return readSize, nil
@@ -1581,7 +1574,7 @@ func (l *Lha) extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 			/* ↑これで、Symbolic Link は、大丈夫か？ */
 			if !l.IgnoreDirectory && !VerifyMode && !l.OutputToStdout {
 				if l.Noexec {
-					if Quiet != true {
+					if !Quiet {
 						fmt.Fprintf(os.Stderr, "EXTRACT %s (directory)\n", string(name[:]))
 					}
 					return readSize, nil
@@ -1589,17 +1582,17 @@ func (l *Lha) extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 				/* NAME has trailing SLASH '/', (^_^) */
 				if (hdr.UnixMode & uint16(UnixFileTypemask)) == uint16(UnixFileSymlink) {
 					var lcode int
-					if l.skipFlg == false {
+					if !l.skipFlg {
 						upFlag, _ = inquireExtract(string(name[:]), l)
-						if upFlag == false && l.Force == false {
+						if !upFlag && !l.Force {
 							return readSize, nil
 						}
 					}
 
-					if l.skipFlg == true {
+					if l.skipFlg {
 						_, err := os.Lstat(string(name[:]))
-						if err == nil && l.Force != true {
-							if Quiet != true {
+						if err == nil && !l.Force {
+							if !Quiet {
 								fmt.Fprintf(os.Stderr, "%s : Skipped...\n", string(name[:]))
 							}
 							return readSize, nil
@@ -1608,11 +1601,11 @@ func (l *Lha) extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 
 					lcode = symlinkWithMakePath(string(hdr.Realname[:]), string(name[:]))
 					if lcode < 0 {
-						if Quiet != true {
+						if !Quiet {
 							fmt.Fprintf(os.Stderr, "Can't make Symbolic Link \"%s\" -> \"%s\"", name, hdr.Realname)
 						}
 					}
-					if Quiet != true {
+					if !Quiet {
 						fmt.Printf("Symbolic Link %s -> %s", name, hdr.Realname)
 					}
 				} else { /* make directory */
@@ -1628,7 +1621,7 @@ func (l *Lha) extractOne(afp *io.Reader, hdr *LzHeader) (int, error) {
 			if l.Force { /* force extract */
 				//goto extractRegular
 			} else {
-				return 0, fmt.Errorf("Unknown file type: \"%s\". use `f' option to force extract", name)
+				return 0, fmt.Errorf("unknown file type: \"%s\". use `f' option to force extract", name)
 			}
 		}
 	}
@@ -1768,51 +1761,61 @@ func (l *Lha) listOne(hdr *LzHeader) {
 
 		case ExtendFlex:
 			p = "[FLEX]"
-			break
 		case ExtendOs9:
 			p = "[OS-9]"
-			break
 		case ExtendOs68k:
 			p = "[OS-9/68K]"
-			break
 		case ExtendMsdos:
 			p = "[MS-DOS]"
-			break
 		case ExtendMacos:
 			p = "[Mac OS]"
-			break
 		case ExtendOs2:
 			p = "[OS/2]"
-			break
 		case ExtendHuman:
 			p = "[Human68K]"
-			break
 		case Extend0s386:
 			p = "[OS-386]"
-			break
 		case ExtendRunser:
 			p = "[Runser]"
-			break
 
 			/* This ID isn't fixed */
 		case ExtendTownsos:
 			p = "[TownsOS]"
-			break
 
 		case ExtendJava:
 			p = "[JAVA]"
-			break
 			/* Ouch!  Please customize it's ID.  */
 		default:
 			p = "[unknown]"
-			break
 		}
 		fmt.Printf("%-11.11s", p)
 	}
 
 	switch hdr.ExtendType {
 	case ExtendUnix:
+		if hdr.User[0] != 0 {
+			fmt.Printf("%5.5s/", hdr.User)
+		} else {
+			fmt.Printf("%5d/", hdr.UnixUID)
+		}
+
+		if hdr.Group[0] != 0 {
+			fmt.Printf("%-5.5s ", hdr.Group)
+		} else {
+			fmt.Printf("%-5d ", hdr.UnixGid)
+		}
 	case ExtendOs68k:
+		if hdr.User[0] != 0 {
+			fmt.Printf("%5.5s/", hdr.User)
+		} else {
+			fmt.Printf("%5d/", hdr.UnixUID)
+		}
+
+		if hdr.Group[0] != 0 {
+			fmt.Printf("%-5.5s ", hdr.Group)
+		} else {
+			fmt.Printf("%-5d ", hdr.UnixGid)
+		}
 	case ExtendXosk:
 		if hdr.User[0] != 0 {
 			fmt.Printf("%5.5s/", hdr.User)

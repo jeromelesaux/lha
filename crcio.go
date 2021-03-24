@@ -104,7 +104,7 @@ func (l *Lha) fwriteCrc(crcp *uint, p []byte, n int, fp *io.Writer) error {
 	if VerifyMode {
 		return nil
 	}
-	_, err := (*fp).Write(p)
+	_, err := (*fp).Write(p[:n])
 	if err != nil {
 		return fmt.Errorf("file write error :%v", err.Error())
 	}

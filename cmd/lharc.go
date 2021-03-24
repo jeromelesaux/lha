@@ -117,7 +117,6 @@ func parseOption() {
 		cmd = lha.CmdAdd
 		l.CmdFilev = append(l.CmdFilev, *createfile)
 		l.CmdFilec++
-		return
 	}
 
 	if *addfile != "" {
@@ -158,13 +157,12 @@ func parseOption() {
 
 	}
 	parseSubOption()
-	return
 }
 
 func parseSubOption() {
 	if *genericformat != 5 {
 		lha.GenericFormat = true
-		l.HeaderLevel = 0
+		l.HeaderLevel = *genericformat
 	}
 
 	if *compressionmethod != 0 {
@@ -175,7 +173,6 @@ func parseSubOption() {
 			l.CompressMethod = lha.Lzhuff5MethodNum
 		case 6:
 			l.CompressMethod = lha.Lzhuff6MethodNum
-			break
 		case 7:
 			l.CompressMethod = lha.Lzhuff7MethodNum
 		default:
@@ -196,7 +193,6 @@ func parseSubOption() {
 			l.HeaderLevel = 1
 		}
 	}
-	return
 }
 
 func printVersion() {
@@ -216,7 +212,7 @@ func initVariable() { /* Added N.Watazaki */
 
 	l.CompressMethod = defaultLzhuffMethod /* defined in config.h */
 
-	l.HeaderLevel = 2 /* level 2 */
+	l.HeaderLevel = 0 /* level 2 */
 	quietMode = 0
 
 	/* view command flags */

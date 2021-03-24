@@ -296,10 +296,6 @@ func (l *Lha) addOne(fp *io.Reader, nafp *io.Writer, hdr *LzHeader) error {
 		}
 	}
 
-	if GenericFormat { /* [generic] doesn't need directory info. */
-		return nil
-	}
-
 	WriteHeader(nafp, hdr) /* DUMMY */
 
 	if (hdr.UnixMode & uint16(UnixFileSymlink)) == uint16(UnixFileSymlink) {

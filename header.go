@@ -504,7 +504,7 @@ func (l *LzHeader) getHeaderLevel0(fp *io.Reader, data []byte) (error, bool) {
 	l.Attribute = getByte() /* MS-DOS attribute */
 	l.HeaderLevel = getByte()
 	nameLength = int(getByte())
-	l.Name, i = getBytes(nameLength, len(l.Name)) // sizeof l.name
+	l.Name, i = getBytes(nameLength, len(l.Name)+1) // sizeof l.name
 	l.Name[i-1] = 0
 
 	/* defaults for other type */
@@ -1369,8 +1369,8 @@ func (l *LzHeader) writeHeaderLevel2(data []byte, pathname []byte) int {
 	var nameLength, dirLength int
 	var basename, dirname []byte
 	var headerSize int
-	extendHeaderTop := make([]byte, 0)
-	headercrcPtr := make([]byte, 0)
+	//extendHeaderTop := make([]byte, 0)
+	headercrcPtr := 0
 	var hcrc uint
 	index := strings.Index(string(pathname), string(lhaPathsep))
 
@@ -1406,24 +1406,24 @@ func (l *LzHeader) writeHeaderLevel2(data []byte, pathname []byte) int {
 
 	/* write extend header from here. */
 	/* write extend header from here. */
-	extendHeaderTop = append(extendHeaderTop, data[putPtr+2:len(data)-(putPtr+2)]...)
+	//	extendHeaderTop = append(extendHeaderTop, data[putPtr+2:len(data)-(putPtr+2)]...)
 	//	copy(extendHeaderTop[:], data[putPtr+2:putPtr+2+len(data)])
 	//extendHeaderTop = putPtr + 2 /* +2 for the field `next header size' */
-	headerSize = len(extendHeaderTop) // - data - 2
+	//headerSize = len(extendHeaderTop) // - data - 2
 	//extendHeaderTop = putPtr + 2 /* +2 for the field `next header size' */
 
 	/* write common header */
 	putWord(5)
 	putByte(0x00)
-	headercrcPtr = append(headercrcPtr, data[putPtr:len(data)-putPtr]...)
+	headercrcPtr = putPtr //  append(headercrcPtr, data[putPtr:len(data)-putPtr]...)
 	//copy(headercrcPtr[:], data[putPtr:putPtr+len(data)])
 	//headercrcPtr = len(data[putPtr:len(data)])
 	putWord(0x0000) /* header CRC */
 
 	/* write filename and dirname */
 	/* must have this header, even if the nameLength is 0. */
-	putWord(nameLength + 3) /* size */
-	putByte(0x01)           /* filename */
+	putWord(nameLength) /* size */
+	//putByte(0x01)           /* filename */
 	putBytes(basename, nameLength)
 
 	if dirLength > 0 {
@@ -1431,7 +1431,7 @@ func (l *LzHeader) writeHeaderLevel2(data []byte, pathname []byte) int {
 		putByte(0x02)          /* dirname */
 		putBytes(dirname, dirLength)
 	}
-
+	headerSize = putPtr //- data
 	if !GenericFormat {
 		writeUnixInfo(l)
 	}
@@ -1453,7 +1453,8 @@ func (l *LzHeader) writeHeaderLevel2(data []byte, pathname []byte) int {
 	/* put header CRC in extended header */
 	initializeCrc(&hcrc)
 	hcrc = calcCrc(hcrc, &data, 0, uint(headerSize))
-	setupPut(&headercrcPtr, 0)
+	//setupPut(&headercrcPtr, 0)
+	putPtr = headercrcPtr
 	putWord(int(hcrc))
 
 	return headerSize

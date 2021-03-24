@@ -504,9 +504,9 @@ func (l *LzHeader) getHeaderLevel0(fp *io.Reader, data []byte) (error, bool) {
 	l.Attribute = getByte() /* MS-DOS attribute */
 	l.HeaderLevel = getByte()
 	nameLength = int(getByte())
-	l.Name, i = getBytes(nameLength, len(l.Name)+1) // sizeof l.name
+	l.Name, i = getBytes(nameLength+1, len(l.Name)) // sizeof l.name
 	l.Name[i-1] = 0
-
+	getPtr--
 	/* defaults for other type */
 	l.UnixMode = uint16(UnixFileRegular) | uint16(UnixRwRwRw)
 	l.UnixGid = 0

@@ -267,7 +267,7 @@ func (l *Lha) outputSt1(c, p uint16) {
 
 /* ------------------------------------------------------------------------ */
 func allocBuf( /* void */ ) []byte {
-	bufsiz = 16 * 1024 * 2 /* 65408U; */ /* t.okamoto */
+	bufsiz = 16*1024*4 - 1 /* 65408U; */ /* t.okamoto */
 	/* for ((buf = (unsigned char *) malloc(bufsiz)) == NULL) {
 	    bufsiz = (bufsiz / 10) * 9;
 	    if (bufsiz < 4 * 1024)
@@ -408,13 +408,18 @@ func (l *Lha) readCLen( /* void */ ) {
 			c = int16(ptTable[l.peekbits(8)])
 			if c >= int16(Nt) {
 				var mask uint16 = 1 << (16 - 9)
-				for c >= int16(Nt) && (mask != 0 || c != int16(left[c])) {
+				for {
 					if (l.bitbuf & mask) != 0 {
 						c = int16(right[c])
 					} else {
 						c = int16(left[c])
 					}
 					mask >>= 1
+					if c >= int16(Nt) && (mask != 0 || c != int16(left[c])) {
+						continue
+					} else {
+						break
+					}
 				} // for (c >= NT && (mask || c != left[c])); /* CVE-2006-4338 */
 			}
 			l.fillbuf(ptLen[c])
@@ -465,13 +470,18 @@ func (l *Lha) decodeCSt1( /*void*/ ) uint16 {
 	} else {
 		l.fillbuf(12)
 		mask = 1 << (16 - 1)
-		for j >= Nc && (mask != 0 || j != left[j]) {
+		for {
 			if (l.bitbuf & mask) != 0 {
 				j = right[j]
 			} else {
 				j = left[j]
 			}
 			mask >>= 1
+			if j >= Nc && (mask != 0 || j != left[j]) {
+				continue
+			} else {
+				break
+			}
 			//for (j >= NC && (mask || j != left[j])); /* CVE-2006-4338 */
 		} //for (j >= NC && (mask || j != left[j])); /* CVE-2006-4338 */
 		l.fillbuf(cLen[j] - 12)

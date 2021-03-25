@@ -2,6 +2,14 @@ package lha
 
 import "fmt"
 
+type assignmentType int
+
+const (
+	table_ assignmentType = iota
+	right_
+	left_
+)
+
 func makeTable(nchar int16, bitlen *[]byte, tablebits int16, table *[]uint16) error {
 	var (
 		count             [17]uint16 /* count of bitlen */
@@ -10,7 +18,7 @@ func makeTable(nchar int16, bitlen *[]byte, tablebits int16, table *[]uint16) er
 		total             uint16
 		i, l              uint
 		j, k, m, n, avail int
-		p                 int
+		pIndex            int
 	)
 
 	avail = int(nchar)
@@ -77,32 +85,53 @@ func makeTable(nchar int16, bitlen *[]byte, tablebits int16, table *[]uint16) er
 				/* CVE-2006-4337 */
 				return fmt.Errorf("bad table (case c)")
 			}
-			p = int(i) >> m
+
+			pIndex = int(i >> m)
+			pValue := (*table)[pIndex]
+			which := table_
 			i <<= tablebits
 			n = k - int(tablebits)
 			/* make tree (n length) */
 			n--
-			var setRight bool
 			for n >= 0 {
-				if (*table)[p] == 0 {
+				if pValue == 0 {
 					left[avail] = 0
 					right[avail] = 0
-					(*table)[p] = uint16(avail)
+					switch which {
+					case table_:
+						(*table)[pIndex] = uint16(avail)
+						pValue = (*table)[pIndex]
+					case right_:
+						right[pIndex] = uint16(avail)
+						pValue = right[pIndex]
+					case left_:
+						left[pIndex] = uint16(avail)
+						pValue = left[pIndex]
+					}
+
+					//	(*table)[p] = uint16(avail)
 					avail++
 				}
-				p = int((*table)[p])
+				//	p = int((*table)[p])
 				if i&0x8000 != 0 {
-					setRight = true
+					pIndex = int(pValue)
+					pValue = right[pIndex]
+					which = right_
 				} else {
-					setRight = false
+					pIndex = int(pValue)
+					pValue = left[pIndex]
+					which = left_
 				}
 				i <<= 1
 				n--
 			}
-			if setRight {
-				right[p] = uint16(j)
-			} else {
-				left[p] = uint16(j)
+			switch which {
+			case table_:
+				(*table)[pIndex] = uint16(j)
+			case right_:
+				right[pIndex] = uint16(j)
+			case left_:
+				left[pIndex] = uint16(j)
 			}
 		}
 		start[k] = uint16(l)

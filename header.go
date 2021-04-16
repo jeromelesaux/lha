@@ -644,9 +644,11 @@ func (l *LzHeader) getHeaderLevel1(fp *io.Reader, data []byte) (err error, ok bo
 
 	extendSize = getWord()
 	var trash uint
-	err, extendSize = l.getExtendedHeader(fp, extendSize, &trash)
-	if err != nil || extendSize == -1 {
-		return err, false
+	if extendSize > 0 {
+		err, extendSize = l.getExtendedHeader(fp, extendSize, &trash)
+		if err != nil || extendSize == -1 {
+			return err, false
+		}
 	}
 
 	/* On level 1 header, size fields should be adjusted. */

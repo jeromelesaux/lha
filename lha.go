@@ -1,6 +1,7 @@
 package lha
 
 import (
+	"fmt"
 	"io"
 	"os"
 )
@@ -79,6 +80,7 @@ func NewLha(archivename string) *Lha {
 }
 
 func (l *Lha) Headers() (headers []*LzHeader, err error) {
+	var pos int
 	MakeCrcTable()
 	headers = make([]*LzHeader, 0)
 	fr, err := openOldArchive(l)
@@ -97,6 +99,25 @@ func (l *Lha) Headers() (headers []*LzHeader, err error) {
 			break
 		}
 		headers = append(headers, h)
+		pos = 0
+		// seek io.reader to + file size
+		if l.needFile(string(h.Name[:])) {
+			readSize, err := l.extractOne(&or, h)
+			if err != nil {
+				return headers, err
+			}
+			if readSize != h.PackedSize {
+				/* when error occurred in extract_one(), should adjust
+				   point of file stream */
+				if err := skipToNextpos(&or, pos, h.PackedSize, readSize); err != nil {
+					return headers, fmt.Errorf("cannot seek to next header position from \"%s\"", h.Name)
+				}
+			}
+		} else {
+			if err := skipToNextpos(&or, pos, h.PackedSize, 0); err == nil {
+				return headers, fmt.Errorf("cannot seek to next header position from \"%s\"", h.Name)
+			}
+		}
 	}
 	return headers, nil
 }

@@ -81,6 +81,11 @@ func NewLha(archivename string) *Lha {
 
 func (l *Lha) Headers() (headers []*LzHeader, err error) {
 	var pos int
+	// verify mode here, no extraction
+	VerifyMode = true
+	defer func() {
+		VerifyMode = false
+	}()
 	MakeCrcTable()
 	headers = make([]*LzHeader, 0)
 	fr, err := openOldArchive(l)

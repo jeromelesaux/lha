@@ -1412,6 +1412,7 @@ func (l *Lha) extractOneStream(afp *io.Reader, hdr *LzHeader) (int, []byte, erro
 		if hdr.HasCrc && crc != hdr.Crc {
 			return 0, outputData.Bytes(), fmt.Errorf("CRC error: \"%s\"", name)
 		}
+		b.Flush()
 		return readSize, outputData.Bytes(), nil
 	} else {
 		return 0, outputData.Bytes(), fmt.Errorf("cannot not stream directory content")

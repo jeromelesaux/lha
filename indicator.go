@@ -27,12 +27,12 @@ func finishIndicator(name, msg string) {
 
 }
 
-func finishIndicator2(name, msg string, pcnt int) {
+func finishIndicator2(name, msg string, pcnt *int) {
 	if Quiet {
 		return
 	}
-	if pcnt > 100 {
-		pcnt = 100
+	if *pcnt > 100 {
+		*pcnt = 100
 	}
 	fmt.Printf("%s\n", msg)
 }

@@ -40,19 +40,19 @@ const (
 var (
 	crctable             [ucharMax + 1]uint
 	archiveNameExtension string = ".lzh"
-	// nolint: unused
+	// nolint: unused, deadcode
 	backupNameExtension string = ".bak"
 
 	dtext []byte
 
 	/* for filename conversion */
 	none int = 0
-	// nolint: unused
+	// nolint: unused, deadcode
 	codeEuc  int = 1
 	codeSJIS int = 2
-	// nolint: unused
+	// nolint: unused, deadcode
 	codeUTF8 int = 3
-	// nolint: unused
+	// nolint: unused, deadcode
 	codeCAP int = 4 /* Columbia AppleTalk Program */
 	toLower int = 1
 	toUpper int = 2
@@ -124,9 +124,9 @@ var (
 	   it should compare with
 	   `unsigned char' or `int',
 	   that is not '\xff', but 0xff. */
-	// nolint: unused
+	// nolint: unused, deadcode
 	oskRwRwRw int = 0000033
-	// nolint: unused
+	// nolint: unused, deadcode
 	oskFileRegular    int = 0000000
 	oskDirectoryPerm  int = 0000200
 	oskSharedPerm     int = 0000100
@@ -176,7 +176,7 @@ var (
 
 	/* shuf.c */
 	n1 int = 286 /* alphabet size */
-	// nolint: unused
+	// nolint: unused, deadcode
 	n2        int = (2*n1 - 1) /* # of nodes in huffman tree */
 	extrabits int = 8          /* >= log2(f-threshold+258-n1) */
 	bufbits   int = 16         /* >= log2(maxbuf) */
@@ -193,17 +193,17 @@ var (
 
 )
 
-// nolint: unused
+// nolint: unused, deadcode
 func sjisFirstP(c byte) bool {
 	return (c >= 0x80 && c < 0xa0) || (c >= 0xe0 && c < 0xfd)
 }
 
-// nolint: unused
+// nolint: unused, deadcode
 func sjisSecond(c byte) bool {
 	return ((c >= 0x40 && c < 0xfd) && c != 0x7f)
 }
 
-// nolint: unused
+// nolint: unused, deadcode
 func x0201KanaP(c byte) bool {
 	return (0xa0 < c && c < 0xe0)
 }
@@ -224,7 +224,7 @@ func updateCrc(crc uint, c byte) uint {
 	return crctable[(crc^uint(c))&0xff] ^ (crc >> uint(charBit))
 }
 
-// nolint: unused
+// nolint: unused, deadcode
 func strequ(a, b string) bool {
 	if a[0] == b[0] {
 		return a == b

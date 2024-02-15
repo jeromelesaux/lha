@@ -13,7 +13,7 @@ import (
 const ()
 
 var (
-	// nolint: unused
+	// nolint: unused, deadcode
 	version         = flag.Bool("version", false, "print version of application ")
 	listfile        = flag.Bool("l", false, "List ")
 	listfileverbose = flag.Bool("lv", false, "Verbose List ")
@@ -24,11 +24,11 @@ var (
 	movefile        = flag.Bool("m", false, "Move to archive ")
 	createfile      = flag.String("c", "", "re-Construct new archive ")
 	testcrcfile     = flag.Bool("t", false, "Test file CRC in archive ")
-	// nolint: unused
+	// nolint: unused, deadcode
 	verbosemodeoption = flag.Bool("v", false, "verbose ")
-	// nolint: unused
+	// nolint: unused, deadcode
 	nonexecuteoption = flag.Bool("n", false, "not execute")
-	// nolint: unused
+	// nolint: unused, deadcode
 	forceoption        = flag.Bool("f", false, "force (over write at extract) ")
 	printstdoutarchive = flag.Bool("p", false, "Print to STDOUT from archive ")
 	genericformat      = flag.Int("g", 2, " Generic format (for compatibility) 0/1/2 header level (a/u/c) ")
@@ -39,25 +39,25 @@ var (
 
 	cmd byte = lha.CmdUnknown
 
-	// nolint: unused
+	// nolint: unused, deadcode
 	timestampArchive bool
-	// nolint: unused
+	// nolint: unused, deadcode
 	quietMode int
-	// nolint: unused
+	// nolint: unused, deadcode
 	newArchive bool
-	// nolint: unused
+	// nolint: unused, deadcode
 	updateIfNewer bool
-	// nolint: unused
+	// nolint: unused, deadcode
 	deleteAfterAppend bool
-	// nolint: unused
+	// nolint: unused, deadcode
 	backupOldArchive bool
-	// nolint: unused
+	// nolint: unused, deadcode
 	getFilenameFromStdin bool
-	// nolint: unused
+	// nolint: unused, deadcode
 	recoverArchiveWhenInterrupt bool
-	// nolint: unused
+	// nolint: unused, deadcode
 	recursiveArchiving bool
-	// nolint: unused
+	// nolint: unused, deadcode
 	temporaryFD         int
 	defaultLzhuffMethod = lha.Lzhuff5MethodNum
 	l                   *lha.Lha

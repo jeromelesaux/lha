@@ -1,7 +1,7 @@
 package lha
 
 import (
-	"io/ioutil"
+	"io"
 	"os"
 	"testing"
 )
@@ -82,7 +82,7 @@ func TestCompressBytes(t *testing.T) {
 		t.Fatalf("cannot open file :%v\n", err.Error())
 	}
 	defer f.Close()
-	data, err := ioutil.ReadAll(f)
+	data, err := io.ReadAll(f)
 	if err != nil {
 		t.Fatalf("cannot read file :%v\n", err.Error())
 	}

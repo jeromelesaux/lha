@@ -151,12 +151,12 @@ func skipBytes(len int) {
 	getPtr += len
 }
 
-// nolint: unused
+// nolint: unused, deadcode
 func dumpGetByte() byte {
 	return getByte()
 }
 
-// nolint: unused
+// nolint: unused, deadcode
 func dumpSkipBytes(len int) {
 	if len == 0 {
 		return
@@ -216,7 +216,7 @@ func putBytes(buf []byte, len int) {
 	}
 }
 
-// nolint: unused
+// nolint: unused, deadcode
 func subbits(n, off, len int) int {
 	return (((n) >> (off)) & ((1 << (len)) - 1))
 }
@@ -306,7 +306,7 @@ func (l *LzHeader) getExtendedHeader(fp *io.Reader, headerSize int, hcrc *uint) 
 	if l.HeaderLevel == 0 {
 		return nil, 0
 	}
-	nameLength = len(l.Name)
+
 	for l.HeaderSize != 0 {
 		setupGet(&data, 0, len(data))
 		if len(data) < l.HeaderSize {
@@ -860,7 +860,7 @@ func (l *LzHeader) GetHeader(fp *io.Reader) (error, bool) {
 
 	setupGet(&data, 0, len(data))
 	buf := make([]byte, 1)
-	nb, err := (*fp).Read(buf)
+	_, err := (*fp).Read(buf)
 
 	endMark = buf[0]
 	if err != nil || endMark == 0 {
@@ -868,7 +868,7 @@ func (l *LzHeader) GetHeader(fp *io.Reader) (error, bool) {
 	}
 	data[0] = endMark
 
-	nb, err = (*fp).Read(data[1:commonHeaderSize])
+	nb, err := (*fp).Read(data[1:commonHeaderSize])
 	if err != nil || nb == 0 {
 		return fmt.Errorf("invalid header (LHarc file ?)"), false
 	}
@@ -1048,12 +1048,12 @@ func (l *LzHeader) SeekLhaHeader(fp *io.Reader) (error, int) {
 	return nil, -1
 }
 
-// nolint: unused
+// nolint: unused, deadcode
 func removeLeadingDots(p string) string {
 	return path.Clean(p)
 }
 
-// nolint: unused
+// nolint: unused, deadcode
 func copyPathElement(dst, src *[]byte, size int) int {
 	if size < 1 {
 		return 0

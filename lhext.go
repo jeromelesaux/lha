@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
+
 	"os"
 	"path/filepath"
 	"sort"
@@ -142,7 +142,7 @@ func inquireExtract(name string, l *Lha) (bool, error) {
 	return true, nil
 }
 
-// nolint: unused
+// nolint: unused, deadcode
 func lhaExit(status int) {
 	//cleanup()
 	os.Exit(status)
@@ -168,7 +168,7 @@ func buildStandardArchiveName(buffer, original []byte, size int) []byte {
 }
 
 func buildTemporaryFile(l *Lha) (*os.File, error) {
-	f, err := ioutil.TempFile("./", "lh")
+	f, err := os.CreateTemp("./", "lh")
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func copyOldOne(oafp *io.Reader, nafp *io.Writer, hdr *LzHeader, l *Lha) error {
 	if !l.Noexec {
 		var v uint
 		l.readingFilename = l.archiveName
-		l.writingFilename = string(l.temporaryName)
+		l.writingFilename = l.temporaryName
 		_, err := copyfile(oafp, nafp, hdr.HeaderSize+hdr.PackedSize, 0, &v)
 		if err != nil {
 			return err
@@ -264,17 +264,16 @@ func findUpdateFiles(oafp *io.Reader, l *Lha) {
 
 }
 
-// nolint: unused
+// nolint: unused, deadcode
 func buildBackupName(buffer, original string) []byte {
-	buffer = original
-	return modifyFilenameExtenstion([]byte(buffer), []byte(backupNameExtension), len(buffer))
+	return modifyFilenameExtenstion([]byte(original), []byte(backupNameExtension), len(original))
 }
 func buildBackupFile(l *Lha) error {
 	return os.Rename(l.archiveName, string(l.backupArchiveName))
 }
 
 func reportArchiveNameIfDifferent(l *Lha) {
-	if !Quiet && string(l.newArchiveName) == string(l.newArchiveNameBuffer) {
+	if !Quiet && l.newArchiveName == string(l.newArchiveNameBuffer) {
 		fmt.Printf("New archive file is \"%s\"", l.newArchiveName)
 	}
 }
@@ -290,7 +289,7 @@ func (l *Lha) addOne(fp *io.Reader, nafp *io.Writer, hdr *LzHeader) error {
 	var vOriginalSize, vPackedSize int
 
 	l.readingFilename = string(hdr.Name)
-	l.writingFilename = string(l.temporaryName)
+	l.writingFilename = l.temporaryName
 
 	/* directory and symlink are ignored for time-stamp archiving */
 	if string(hdr.Method) == "-lhd-" {
@@ -308,7 +307,8 @@ func (l *Lha) addOne(fp *io.Reader, nafp *io.Writer, hdr *LzHeader) error {
 	}
 
 	if hdr.OriginalSize == 0 { /* empty file, symlink or directory */
-		finishIndicator2(string(hdr.Name), "Frozen", 0)
+		var indice int
+		finishIndicator2(string(hdr.Name), "Frozen", &indice)
 		return nil /* previous write_header is not DUMMY. (^_^) */
 	}
 
@@ -1908,7 +1908,7 @@ func findFiles(name string, vfilec *int, vfilev *[]string, l *Lha) bool {
 	}
 
 	initSP(sp)
-	files, err := ioutil.ReadDir(name)
+	files, err := os.ReadDir(name)
 	if err != nil {
 		return false
 	}

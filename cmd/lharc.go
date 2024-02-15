@@ -13,18 +13,22 @@ import (
 const ()
 
 var (
-	version            = flag.Bool("version", false, "print version of application ")
-	listfile           = flag.Bool("l", false, "List ")
-	listfileverbose    = flag.Bool("lv", false, "Verbose List ")
-	extractfile        = flag.Bool("e", false, "EXtract from archive ")
-	updatefile         = flag.Bool("u", false, "Update newer files to archive ")
-	deletefile         = flag.Bool("d", false, "Delete from archive ")
-	addfile            = flag.String("a", "", "Add(or replace) to archive ")
-	movefile           = flag.Bool("m", false, "Move to archive ")
-	createfile         = flag.String("c", "", "re-Construct new archive ")
-	testcrcfile        = flag.Bool("t", false, "Test file CRC in archive ")
-	verbosemodeoption  = flag.Bool("v", false, "verbose ")
-	nonexecuteoption   = flag.Bool("n", false, "not execute")
+	// nolint: unused
+	version         = flag.Bool("version", false, "print version of application ")
+	listfile        = flag.Bool("l", false, "List ")
+	listfileverbose = flag.Bool("lv", false, "Verbose List ")
+	extractfile     = flag.Bool("e", false, "EXtract from archive ")
+	updatefile      = flag.Bool("u", false, "Update newer files to archive ")
+	deletefile      = flag.Bool("d", false, "Delete from archive ")
+	addfile         = flag.String("a", "", "Add(or replace) to archive ")
+	movefile        = flag.Bool("m", false, "Move to archive ")
+	createfile      = flag.String("c", "", "re-Construct new archive ")
+	testcrcfile     = flag.Bool("t", false, "Test file CRC in archive ")
+	// nolint: unused
+	verbosemodeoption = flag.Bool("v", false, "verbose ")
+	// nolint: unused
+	nonexecuteoption = flag.Bool("n", false, "not execute")
+	// nolint: unused
 	forceoption        = flag.Bool("f", false, "force (over write at extract) ")
 	printstdoutarchive = flag.Bool("p", false, "Print to STDOUT from archive ")
 	genericformat      = flag.Int("g", 2, " Generic format (for compatibility) 0/1/2 header level (a/u/c) ")
@@ -35,18 +39,25 @@ var (
 
 	cmd byte = lha.CmdUnknown
 
+	// nolint: unused
 	timestampArchive bool
-
+	// nolint: unused
 	quietMode int
-
-	newArchive                  bool
-	updateIfNewer               bool
-	deleteAfterAppend           bool
-	backupOldArchive            bool
-	getFilenameFromStdin        bool
+	// nolint: unused
+	newArchive bool
+	// nolint: unused
+	updateIfNewer bool
+	// nolint: unused
+	deleteAfterAppend bool
+	// nolint: unused
+	backupOldArchive bool
+	// nolint: unused
+	getFilenameFromStdin bool
+	// nolint: unused
 	recoverArchiveWhenInterrupt bool
-	recursiveArchiving          bool
-
+	// nolint: unused
+	recursiveArchiving bool
+	// nolint: unused
 	temporaryFD         int
 	defaultLzhuffMethod = lha.Lzhuff5MethodNum
 	l                   *lha.Lha
@@ -79,7 +90,7 @@ func main() {
 	case lha.CmdList:
 		globalError = lha.CommandList(*archiveNameOption, l) // to be tested
 	case lha.CmdDelete:
-		lha.CommadDelete(*archiveNameOption, l) // to implemennt
+		_ = lha.CommadDelete(*archiveNameOption, l) // to implemennt
 	default:
 		fmt.Fprintf(os.Stderr, "option unknown.")
 		printVersion()
@@ -93,7 +104,7 @@ func main() {
 }
 
 /*
-  Parse LHA command and options.
+Parse LHA command and options.
 */
 func parseOption() {
 	if *listfile {

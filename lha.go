@@ -7,9 +7,13 @@ import (
 )
 
 type StringPool struct {
-	used   int
-	size   int
-	n      int
+	// nolint: unused
+	used int
+	// nolint: unused
+	size int
+	// nolint: unused
+	n int
+	// nolint: unused
 	buffer []byte
 }
 

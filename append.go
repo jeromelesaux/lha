@@ -50,7 +50,7 @@ func (l *Lha) EncodeLzhuf(infp *io.Reader, outfp *io.Writer, size int, original_
 	copy(hdr_method, "-lh -")
 	hdr_method[3] = byte(inter.method) + '0'
 
-	finishIndicator2(string(name), "Frozen", (int)((*packed_size_var*100) / *original_size_var))
+	finishIndicator2(string(name), "Frozen", ((*packed_size_var * 100) / *original_size_var))
 	return crc, nil
 }
 

@@ -3,6 +3,7 @@ package lha
 import "fmt"
 
 var (
+	// nolint: unused
 	reading_size int
 	Quiet        bool
 )

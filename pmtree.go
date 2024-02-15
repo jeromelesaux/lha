@@ -39,7 +39,7 @@ func (l *Lha) maketree1() {
 				table1[i] = 0
 			}
 		}
-		treeRebuild(&tree1, tree1bound, mindepth, 31, table1[:])
+		_ = treeRebuild(&tree1, tree1bound, mindepth, 31, table1[:])
 	}
 }
 
@@ -81,7 +81,7 @@ func (l *Lha) maketree2(tree2bound int) { /* in use: 5 <= tree2bound <= 8 */
 		treeSetsingle(&tree2, byte(index))
 	} else {
 		if count > 1 {
-			treeRebuild(&tree2, byte(tree2bound), 1, 7, table2[:])
+			_ = treeRebuild(&tree2, byte(tree2bound), 1, 7, table2[:])
 		}
 	}
 	// Note: count == 0 is possible!

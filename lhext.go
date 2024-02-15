@@ -142,13 +142,14 @@ func inquireExtract(name string, l *Lha) (bool, error) {
 	return true, nil
 }
 
+// nolint: unused
 func lhaExit(status int) {
 	//cleanup()
 	os.Exit(status)
 }
 
 func writeArchiveTail(nafp *io.Writer) {
-	(*nafp).Write([]byte{0x00})
+	_, _ = (*nafp).Write([]byte{0x00})
 }
 
 func openOldArchive(l *Lha) (*os.File, error) {
@@ -262,6 +263,8 @@ func findUpdateFiles(oafp *io.Reader, l *Lha) {
 	finishSP(&sp, &l.CmdFilec, &l.CmdFilev)
 
 }
+
+// nolint: unused
 func buildBackupName(buffer, original string) []byte {
 	buffer = original
 	return modifyFilenameExtenstion([]byte(buffer), []byte(backupNameExtension), len(buffer))
@@ -296,7 +299,7 @@ func (l *Lha) addOne(fp *io.Reader, nafp *io.Writer, hdr *LzHeader) error {
 		}
 	}
 
-	WriteHeader(nafp, hdr) /* DUMMY */
+	_ = WriteHeader(nafp, hdr) /* DUMMY */
 
 	if (hdr.UnixMode & uint16(UnixFileSymlink)) == uint16(UnixFileSymlink) {
 		if !Quiet {
@@ -332,9 +335,9 @@ func (l *Lha) addOne(fp *io.Reader, nafp *io.Writer, hdr *LzHeader) error {
 	hdr.OriginalSize = vOriginalSize
 	hdr.PackedSize = vPackedSize
 	// go back to the beginning to set the new header
-	(*nafp).(*os.File).Seek(0, io.SeekStart)
-	WriteHeader(nafp, hdr)
-	(*nafp).(*os.File).Seek(0, io.SeekEnd)
+	_, _ = (*nafp).(*os.File).Seek(0, io.SeekStart)
+	_ = WriteHeader(nafp, hdr)
+	_, _ = (*nafp).(*os.File).Seek(0, io.SeekEnd)
 	return nil
 }
 
@@ -381,7 +384,7 @@ func (l *Lha) appendIt(name string, oafp *io.Reader, nafp *io.Writer) (*io.Reade
 
 		if !l.SortContents {
 			if !l.Noexec {
-				copyOldOne(oafp, nafp, ahdr, l)
+				_ = copyOldOne(oafp, nafp, ahdr, l)
 			}
 			cmp = -1 /* to be -1 always */
 			continue
@@ -393,7 +396,7 @@ func (l *Lha) appendIt(name string, oafp *io.Reader, nafp *io.Writer) (*io.Reade
 		if cmp < 0 { /* SKIP */
 			/* copy old to new */
 			if !l.Noexec {
-				copyOldOne(oafp, nafp, ahdr, l)
+				_ = copyOldOne(oafp, nafp, ahdr, l)
 			}
 
 		} else {
@@ -412,7 +415,7 @@ func (l *Lha) appendIt(name string, oafp *io.Reader, nafp *io.Writer) (*io.Reade
 		if l.Noexec {
 			fmt.Printf("ADD %s\n", name)
 		} else {
-			l.addOne(&fp, nafp, hdr)
+			_ = l.addOne(&fp, nafp, hdr)
 		}
 	} else { /* cmp == 0 */
 		if !l.UpdateIfNewer ||
@@ -421,11 +424,11 @@ func (l *Lha) appendIt(name string, oafp *io.Reader, nafp *io.Writer) (*io.Reade
 			if l.Noexec {
 				fmt.Printf("REPLACE %s\n", name)
 			} else {
-				l.addOne(&fp, nafp, hdr)
+				_ = l.addOne(&fp, nafp, hdr)
 			}
 		} else { /* copy old to new */
 			if !l.Noexec {
-				copyOldOne(oafp, nafp, ahdr, l)
+				_ = copyOldOne(oafp, nafp, ahdr, l)
 			}
 		}
 	}
@@ -561,7 +564,7 @@ func CommandAdd(archiveFilepath string, l *Lha) error {
 			}
 			if !l.Noexec {
 				//fseeko(oafp, old_header, SEEK_SET)
-				copyOldOne(&oafp, &nafp, ahdr, l)
+				_ = copyOldOne(&oafp, &nafp, ahdr, l)
 			}
 			//	old_header = ftello(oafp)
 		}
@@ -620,7 +623,8 @@ type StreamFileInfo struct {
 	name    string
 	size    int64
 	modTime time.Time
-	isDir   bool
+	// nolint: unused
+	isDir bool
 }
 
 func (s *StreamFileInfo) Name() string {
@@ -679,7 +683,7 @@ func (l *Lha) appendBytes(name string, oafp *io.Reader, nafp *io.Writer, body []
 
 		if !l.SortContents {
 			if !l.Noexec {
-				copyOldOne(oafp, nafp, ahdr, l)
+				_ = copyOldOne(oafp, nafp, ahdr, l)
 			}
 			cmp = -1 /* to be -1 always */
 			continue
@@ -691,7 +695,7 @@ func (l *Lha) appendBytes(name string, oafp *io.Reader, nafp *io.Writer, body []
 		if cmp < 0 { /* SKIP */
 			/* copy old to new */
 			if !l.Noexec {
-				copyOldOne(oafp, nafp, ahdr, l)
+				_ = copyOldOne(oafp, nafp, ahdr, l)
 			}
 
 		} else {
@@ -709,7 +713,7 @@ func (l *Lha) appendBytes(name string, oafp *io.Reader, nafp *io.Writer, body []
 		if l.Noexec {
 			fmt.Printf("ADD %s\n", name)
 		} else {
-			l.addOne(&fp, nafp, hdr)
+			_ = l.addOne(&fp, nafp, hdr)
 		}
 	} else { /* cmp == 0 */
 		if !l.UpdateIfNewer ||
@@ -718,11 +722,11 @@ func (l *Lha) appendBytes(name string, oafp *io.Reader, nafp *io.Writer, body []
 			if l.Noexec {
 				fmt.Printf("REPLACE %s\n", name)
 			} else {
-				l.addOne(&fp, nafp, hdr)
+				_ = l.addOne(&fp, nafp, hdr)
 			}
 		} else { /* copy old to new */
 			if !l.Noexec {
-				copyOldOne(oafp, nafp, ahdr, l)
+				_ = copyOldOne(oafp, nafp, ahdr, l)
 			}
 		}
 	}
@@ -855,7 +859,7 @@ func compressBytes(archiveFilepath string, body []byte, l *Lha) error {
 			}
 			if !l.Noexec {
 				//fseeko(oafp, old_header, SEEK_SET)
-				copyOldOne(&oafp, &nafp, ahdr, l)
+				_ = copyOldOne(&oafp, &nafp, ahdr, l)
 			}
 			//	old_header = ftello(oafp)
 		}
@@ -975,7 +979,7 @@ func CommandList(archiveFilepath string, l *Lha) error {
 
 		i = hdr.PackedSize
 		v := make([]byte, i)
-		afp.Read(v)
+		_, _ = afp.Read(v)
 	}
 
 	/* close archive file */
@@ -1061,7 +1065,7 @@ func extractBytesWithHeader(header *LzHeader, l *Lha) ([]byte, error) {
 	afp = f
 
 	if archiveIsMsdosSfx1([]byte(l.archiveName)) {
-		hdr.SeekLhaHeader(&afp)
+		_, _ = hdr.SeekLhaHeader(&afp)
 	}
 
 	/* extract each files */
@@ -1120,7 +1124,7 @@ func extractWithHeader(header *LzHeader, l *Lha) error {
 	afp = f
 
 	if archiveIsMsdosSfx1([]byte(l.archiveName)) {
-		hdr.SeekLhaHeader(&afp)
+		_, _ = hdr.SeekLhaHeader(&afp)
 	}
 
 	/* extract each files */
@@ -1181,7 +1185,7 @@ func CommandExtract(archiveFilepath string, l *Lha) error {
 	afp = f
 
 	if archiveIsMsdosSfx1([]byte(l.archiveName)) {
-		hdr.SeekLhaHeader(&afp)
+		_, _ = hdr.SeekLhaHeader(&afp)
 	}
 
 	/* extract each files */
@@ -1231,19 +1235,19 @@ func adjustInfo(name string, hdr *LzHeader) {
 	utimebuf := time.Unix(hdr.UnixLastModifiedStamp, 0)
 
 	if (hdr.UnixMode & uint16(UnixFileTypemask)) != uint16(UnixFileSymlink) {
-		os.Chtimes(name, utimebuf, utimebuf)
+		_ = os.Chtimes(name, utimebuf, utimebuf)
 	}
 
 	if hdr.ExtendType == ExtendUnix || hdr.ExtendType == ExtendOs68k || hdr.ExtendType == ExtendXosk {
 
 		if (hdr.UnixMode & uint16(UnixFileTypemask)) != uint16(UnixFileTypemask) {
-			os.Chmod(name, os.FileMode(hdr.UnixMode))
+			_ = os.Chmod(name, os.FileMode(hdr.UnixMode))
 		}
 
 		uid := hdr.UnixUID
 		gid := hdr.UnixGid
 
-		os.Chown(name, int(uid), int(gid))
+		_ = os.Chown(name, int(uid), int(gid))
 
 	}
 
@@ -1302,7 +1306,7 @@ func makeNameWithPathcheck(name string, namesz int, q string, l *Lha) (bool, []b
 	if offset == 0 {
 		last = len(q) - 1
 	}
-	name = string(q[offset:last])
+	name = q[offset:last]
 	return true, []byte(name), nil
 }
 
@@ -1360,7 +1364,7 @@ func symlinkWithMakePath(realname string, name string) int {
 
 	err := os.Symlink(realname, name)
 	if err != nil {
-		makeParentPath(name)
+		_, _ = makeParentPath(name)
 		err = os.Symlink(realname, name)
 		if err != nil {
 			lCode = 1

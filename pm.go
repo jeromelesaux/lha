@@ -45,7 +45,7 @@ const (
 
 func (l *Lha) decodeStartPm2() {
 	dicsiz1 = (1 << dicbit) - 1
-	l.initGetbits()
+	_ = l.initGetbits()
 	histInit()
 	nextcount = 0
 	lastupdate = 0

@@ -90,7 +90,7 @@ func (l *Lha) startPDyn( /* void */ ) {
 func (l *Lha) decodeStartDyn( /* void */ ) {
 	nMax = 286
 	maxmatch = Maxmatch
-	l.initGetbits()
+	_ = l.initGetbits()
 	initCodeCache()
 	l.startCDyn()
 	l.startPDyn()
@@ -296,13 +296,13 @@ func (l *Lha) encodeCDyn(c uint) {
 		}
 	}
 	if cnt <= 16 {
-		l.putcode(byte(cnt), uint16(bits>>16))
+		_ = l.putcode(byte(cnt), uint16(bits>>16))
 	} else {
-		l.putcode(16, uint16(bits>>16))
-		l.putbits(byte(cnt-16), uint16(bits))
+		_ = l.putcode(16, uint16(bits>>16))
+		_ = l.putbits(byte(cnt-16), uint16(bits))
 	}
 	if d >= 0 {
-		l.putbits(8, uint16(d))
+		_ = l.putbits(8, uint16(d))
 	}
 	updateC(int(c))
 }
@@ -323,7 +323,7 @@ func (l *Lha) decodeCDyn( /* void */ ) uint16 {
 		buf <<= 1
 		cnt++
 		if cnt == 16 {
-			l.fillbuf(16)
+			_ = l.fillbuf(16)
 			buf = int16(l.bitbuf)
 			cnt = 0
 		}
@@ -331,7 +331,7 @@ func (l *Lha) decodeCDyn( /* void */ ) uint16 {
 			break
 		}
 	}
-	l.fillbuf(byte(cnt))
+	_ = l.fillbuf(byte(cnt))
 	c = ^c
 	updateC(c)
 	if c == n1 {
@@ -363,12 +363,12 @@ func (l *Lha) decodePDyn( /* void */ ) uint16 {
 		buf <<= 1
 		cnt++
 		if cnt == 16 {
-			l.fillbuf(16)
+			_ = l.fillbuf(16)
 			buf = int16(l.bitbuf)
 			cnt = 0
 		}
 	}
-	l.fillbuf(byte(cnt))
+	_ = l.fillbuf(byte(cnt))
 	c = (^c) - nChar
 	updateP(c)
 	return (uint16(c) << 6) + l.getbits(6)
@@ -384,5 +384,5 @@ func (l *Lha) outputDyn(code, pos int) {
 /* ------------------------------------------------------------------------ */
 /* lh1 */
 func (l *Lha) encodeEndDyn( /* void */ ) {
-	l.putcode(7, 0)
+	_ = l.putcode(7, 0)
 }

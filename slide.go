@@ -155,7 +155,7 @@ func (l *Lha) decode(inter *interfacing) uint {
 			dtext[l.loc] = byte(c)
 			l.loc++
 			if int(l.loc) == dicsiz {
-				l.fwriteCrc(&crc, dtext, dicsiz, &l.outfile)
+				_ = l.fwriteCrc(&crc, dtext, dicsiz, &l.outfile)
 				l.loc = 0
 			}
 			decodeCount++
@@ -177,14 +177,14 @@ func (l *Lha) decode(inter *interfacing) uint {
 				dtext[l.loc] = byte(c)
 				l.loc++
 				if int(l.loc) == dicsiz {
-					l.fwriteCrc(&crc, dtext, dicsiz, &l.outfile)
+					_ = l.fwriteCrc(&crc, dtext, dicsiz, &l.outfile)
 					l.loc = 0
 				}
 			}
 		}
 	}
 	if l.loc != 0 {
-		l.fwriteCrc(&crc, dtext, int(l.loc), &l.outfile)
+		_ = l.fwriteCrc(&crc, dtext, int(l.loc), &l.outfile)
 	}
 	/* usually read size is interface->packed */
 	inter.readSize = inter.packed - l.compsize
@@ -357,7 +357,7 @@ func (l *Lha) searchDict1(token, pos, off, max uint, m *matchdata) {
 
 	for scanBeg > 0 && scanBeg > scanEnd {
 		chain++
-		if text[int(scanBeg)+m.len] == text[int(pos)+m.len] {
+		if text[scanBeg+m.len] == text[int(pos)+m.len] {
 			{
 				var a, b int
 

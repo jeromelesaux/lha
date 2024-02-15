@@ -36,7 +36,7 @@ func (l *Lha) decodePLzs( /*void*/ ) uint16 {
 /* ------------------------------------------------------------------------ */
 /* lzs */
 func (l *Lha) decodeStartLzs( /*void*/ ) {
-	l.initGetbits()
+	_ = l.initGetbits()
 	initCodeCache()
 }
 
@@ -56,7 +56,7 @@ func (l *Lha) decodeCLz5( /*void*/ ) uint16 {
 		l.mFlag = int(b[0])
 	}
 	l.flagcnt--
-	l.infile.Read(b)
+	_, _ = l.infile.Read(b)
 	c = int(b[0])
 	if (l.mFlag & 1) == 0 {
 		l.matchpos = c

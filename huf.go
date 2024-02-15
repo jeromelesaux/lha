@@ -81,22 +81,22 @@ func (l *Lha) writePtLen(n, nbit, i_special int16) {
 	for n > 0 && ptLen[n-1] == 0 {
 		n--
 	}
-	l.putbits(byte(nbit), uint16(n))
+	_ = l.putbits(byte(nbit), uint16(n))
 	i = 0
 	for i < n {
 		k = int16(ptLen[i])
 		i++
 		if k <= 6 {
-			l.putbits(3, uint16(k))
+			_ = l.putbits(3, uint16(k))
 		} else {
 			/* k=7 -> 1110  k=8 -> 11110  k=9 -> 111110 ... */
-			l.putbits(byte(k)-3, ushrtMax<<1)
+			_ = l.putbits(byte(k)-3, ushrtMax<<1)
 		}
 		if i == i_special {
 			for i < 6 && ptLen[i] == 0 {
 				i++
 			}
-			l.putbits(2, uint16(i)-3)
+			_ = l.putbits(2, uint16(i)-3)
 		}
 	}
 }
@@ -109,7 +109,7 @@ func (l *Lha) writeCLen( /*void*/ ) {
 	for n > 0 && cLen[n-1] == 0 {
 		n--
 	}
-	l.putbits(cbit, n)
+	_ = l.putbits(cbit, n)
 	i = 0
 	for i < n {
 		k = uint16(cLen[i])
@@ -122,30 +122,30 @@ func (l *Lha) writeCLen( /*void*/ ) {
 			}
 			if count <= 2 {
 				for k = 0; k < count; k++ {
-					l.putcode(ptLen[0], ptCode[0])
+					_ = l.putcode(ptLen[0], ptCode[0])
 				}
 			} else if count <= 18 {
-				l.putcode(ptLen[1], ptCode[1])
-				l.putbits(4, count-3)
+				_ = l.putcode(ptLen[1], ptCode[1])
+				_ = l.putbits(4, count-3)
 			} else {
 				if count == 19 {
-					l.putcode(ptLen[0], ptCode[0])
-					l.putcode(ptLen[1], ptCode[1])
-					l.putbits(4, 15)
+					_ = l.putcode(ptLen[0], ptCode[0])
+					_ = l.putcode(ptLen[1], ptCode[1])
+					_ = l.putbits(4, 15)
 				} else {
-					l.putcode(ptLen[2], ptCode[2])
-					l.putbits(cbit, count-20)
+					_ = l.putcode(ptLen[2], ptCode[2])
+					_ = l.putbits(cbit, count-20)
 				}
 			}
 		} else {
-			l.putcode(ptLen[k+2], ptCode[k+2])
+			_ = l.putcode(ptLen[k+2], ptCode[k+2])
 		}
 	}
 }
 
 /* ------------------------------------------------------------------------ */
 func (l *Lha) encodeC(c int16) {
-	l.putcode(cLen[c], cCode[c])
+	_ = l.putcode(cLen[c], cCode[c])
 }
 
 /* ------------------------------------------------------------------------ */
@@ -158,9 +158,9 @@ func (l *Lha) encodeP(p uint16) {
 		q >>= 1
 		c++
 	}
-	l.putcode(ptLen[c], ptCode[c])
+	_ = l.putcode(ptLen[c], ptCode[c])
 	if c > 1 {
-		l.putbits(byte(c)-1, p)
+		_ = l.putbits(byte(c)-1, p)
 	}
 }
 
@@ -171,29 +171,29 @@ func (l *Lha) sendBlock( /* void */ ) {
 
 	root = uint16(makeTree(int(Nc), &cFreq, &cLen, &cCode))
 	size = cFreq[root]
-	l.putbits(16, size)
+	_ = l.putbits(16, size)
 	if root >= Nc {
 		countTFreq()
 		root = uint16(makeTree(int(Nt), &tFreq, &ptLen, &ptCode))
 		if root >= Nt {
 			l.writePtLen(int16(Nt), int16(tbit), 3)
 		} else {
-			l.putbits(tbit, 0)
-			l.putbits(tbit, root)
+			_ = l.putbits(tbit, 0)
+			_ = l.putbits(tbit, root)
 		}
 		l.writeCLen()
 	} else {
-		l.putbits(tbit, 0)
-		l.putbits(tbit, 0)
-		l.putbits(cbit, 0)
-		l.putbits(cbit, root)
+		_ = l.putbits(tbit, 0)
+		_ = l.putbits(tbit, 0)
+		_ = l.putbits(cbit, 0)
+		_ = l.putbits(cbit, root)
 	}
 	root = uint16(makeTree(int(np), &pFreq, &ptLen, &ptCode))
 	if root >= uint16(np) {
 		l.writePtLen(int16(np), int16(pbit), -1)
 	} else {
-		l.putbits(pbit, 0)
-		l.putbits(pbit, root)
+		_ = l.putbits(pbit, 0)
+		_ = l.putbits(pbit, root)
 	}
 	pos = 0
 	for i = 0; i < size; i++ {
@@ -316,7 +316,7 @@ func (l *Lha) encodeStartSt1( /* void */ ) {
 func (l *Lha) encodeEndSt1( /* void */ ) {
 	if !l.unpackable {
 		l.sendBlock()
-		l.putbits(charBit-1, 0) /* flush remaining bits */
+		_ = l.putbits(charBit-1, 0) /* flush remaining bits */
 	}
 }
 
@@ -359,14 +359,14 @@ func (l *Lha) readPtLen(nn, nbit, i_special int16) {
 		for i < min(n, int(Npt)) {
 			c = int(l.peekbits(3))
 			if c != 7 {
-				l.fillbuf(3)
+				_ = l.fillbuf(3)
 			} else {
 				mask := 1 << (16 - 4)
 				for mask&int(l.bitbuf) != 0 {
 					mask >>= 1
 					c++
 				}
-				l.fillbuf(byte(c) - 3)
+				_ = l.fillbuf(byte(c) - 3)
 			}
 
 			ptLen[i] = byte(c)
@@ -385,7 +385,7 @@ func (l *Lha) readPtLen(nn, nbit, i_special int16) {
 			ptLen[i] = 0
 			i++
 		}
-		makeTable(nn, &ptLen, 8, &ptTable)
+		_ = makeTable(nn, &ptLen, 8, &ptTable)
 	}
 }
 
@@ -422,7 +422,7 @@ func (l *Lha) readCLen( /* void */ ) {
 					}
 				} // for (c >= NT && (mask || c != left[c])); /* CVE-2006-4338 */
 			}
-			l.fillbuf(ptLen[c])
+			_ = l.fillbuf(ptLen[c])
 			if c <= 2 {
 				if c == 0 {
 					c = 1
@@ -448,7 +448,7 @@ func (l *Lha) readCLen( /* void */ ) {
 			cLen[i] = 0
 			i++
 		}
-		makeTable(int16(Nc), &cLen, 12, &cTable)
+		_ = makeTable(int16(Nc), &cLen, 12, &cTable)
 	}
 }
 
@@ -466,9 +466,9 @@ func (l *Lha) decodeCSt1( /*void*/ ) uint16 {
 	blocksize--
 	j = cTable[l.peekbits(12)]
 	if j < Nc {
-		l.fillbuf(cLen[j])
+		_ = l.fillbuf(cLen[j])
 	} else {
-		l.fillbuf(12)
+		_ = l.fillbuf(12)
 		mask = 1 << (16 - 1)
 		for {
 			if (l.bitbuf & mask) != 0 {
@@ -484,7 +484,7 @@ func (l *Lha) decodeCSt1( /*void*/ ) uint16 {
 			}
 			//for (j >= NC && (mask || j != left[j])); /* CVE-2006-4338 */
 		} //for (j >= NC && (mask || j != left[j])); /* CVE-2006-4338 */
-		l.fillbuf(cLen[j] - 12)
+		_ = l.fillbuf(cLen[j] - 12)
 	}
 	return j
 }
@@ -496,9 +496,9 @@ func (l *Lha) decodePSt1( /* void */ ) uint16 {
 
 	j = ptTable[l.peekbits(8)]
 	if j < uint16(np) {
-		l.fillbuf(ptLen[j])
+		_ = l.fillbuf(ptLen[j])
 	} else {
-		l.fillbuf(8)
+		_ = l.fillbuf(8)
 		mask = 1 << (16 - 1)
 		for uint(j) >= np && (mask != 0 || j != left[j]) {
 			if (l.bitbuf & mask) != 0 {
@@ -509,7 +509,7 @@ func (l *Lha) decodePSt1( /* void */ ) uint16 {
 			mask >>= 1
 			//for (j >= np && (mask || j != left[j])); /* CVE-2006-4338 */
 		} //for (j >= np && (mask || j != left[j])); /* CVE-2006-4338 */
-		l.fillbuf(ptLen[j] - 8)
+		_ = l.fillbuf(ptLen[j] - 8)
 	}
 	if j != 0 {
 		j = (1 << (j - 1)) + l.getbits(byte(j)-1)
@@ -535,7 +535,7 @@ func (l *Lha) decodeStartSt1( /* void */ ) {
 		fmt.Fprintf(os.Stderr, "Cannot use %d bytes dictionary", 1<<dicbit)
 	}
 
-	l.initGetbits()
+	_ = l.initGetbits()
 	initCodeCache()
 	blocksize = 0
 }

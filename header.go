@@ -14,9 +14,11 @@ import (
 )
 
 var (
-	getPtr        int
-	putPtr        int
-	storageSize   int
+	getPtr int
+	putPtr int
+	// nolint: unused
+	storageSize int
+	// nolint: unused
 	startPtr      int
 	ptr           *[]byte
 	ConvertCase   bool
@@ -149,10 +151,12 @@ func skipBytes(len int) {
 	getPtr += len
 }
 
+// nolint: unused
 func dumpGetByte() byte {
 	return getByte()
 }
 
+// nolint: unused
 func dumpSkipBytes(len int) {
 	if len == 0 {
 		return
@@ -212,6 +216,7 @@ func putBytes(buf []byte, len int) {
 	}
 }
 
+// nolint: unused
 func subbits(n, off, len int) int {
 	return (((n) >> (off)) & ((1 << (len)) - 1))
 }
@@ -1043,10 +1048,12 @@ func (l *LzHeader) SeekLhaHeader(fp *io.Reader) (error, int) {
 	return nil, -1
 }
 
+// nolint: unused
 func removeLeadingDots(p string) string {
 	return path.Clean(p)
 }
 
+// nolint: unused
 func copyPathElement(dst, src *[]byte, size int) int {
 	if size < 1 {
 		return 0
@@ -1068,11 +1075,13 @@ func copyPathElement(dst, src *[]byte, size int) int {
 	return i
 }
 
+// nolint: unused
 func canonPath(newpath, path []byte, size int) ([]byte, int) {
 	p := removeLeadingDots(string(path))
 	return []byte(p), len(newpath) - len(path)
 }
 
+// nolint: unused
 func (l LzHeader) initHeader(name string, headerLevel byte, fileinfo os.FileInfo) {
 	var length int
 	l.PackedSize = 0
